@@ -1,4 +1,35 @@
 {
   "schemaVersion": 1,
-  "posts": []
+  "posts": [
+    {
+      "id": "87b52a17-954f-4d28-87a1-d1c523e26f63",
+      "slug": "sumatrapdf-v3-6-1-windows-x64-freeware",
+      "title": "SumatraPDF - v3.6.1 - Windows x64 - Freeware",
+      "category": "film",
+      "description": "Sumatra PDF là một phần mềm đọc tài liệu miễn phí, mã nguồn mở dành riêng cho hệ điều hành Windows, nổi tiếng nhờ tiêu chí siêu nhanh, siêu nhẹ và tối giản.",
+      "introduction": "Sumatra PDF là một phần mềm đọc tài liệu miễn phí, mã nguồn mở dành riêng cho hệ điều hành Windows, nổi tiếng với tiêu chí siêu nhanh, siêu nhẹ và tối giản. Trải nghiệm phần mềm mang lại cực kỳ mượt mà nhờ tốc độ khởi động gần như ngay lập tức và giao diện tinh giản tối đa, giúp người dùng tập trung hoàn toàn vào nội dung văn bản. Không chỉ xử lý tốt các file PDF nặng, ứng dụng này còn hỗ trợ đa định dạng từ sách điện tử (EPUB, MOBI), truyện tranh (CBZ, CBR) cho đến tài liệu kỹ thuật (DjVu, XPS). Đặc biệt, phiên bản mới nhất hiện nay đã được tích hợp thêm các công cụ AI Chat và Dịch thuật (như Claude, OpenAI), cho phép người dùng tóm tắt đoạn văn hoặc giải thích thuật ngữ trực tiếp khi đang đọc. Dù không hỗ trợ các tính năng chỉnh sửa chuyên sâu hay ký số, Sumatra PDF vẫn là sự thay thế hoàn hảo cho các trình đọc nặng nề như Adobe Reader, cực kỳ lý tưởng cho nhu cầu đọc, tra cứu tài liệu và xem sách truyện hàng ngày trên mọi cấu hình máy tính.\n\nTrang chính thức: https://www.sumatrapdfreader.org/download-free-pdf-viewer",
+      "instructions": "",
+      "cover_url": "uploads/e3001ef0-517f-43f4-9aaa-3df7a0e850c2.webp",
+      "images": [
+        "uploads/495233ec-60bf-4dcf-93de-4bd24e93fc8a.webp"
+      ],
+      "attachment_url": "",
+      "media_url": "",
+      "status": "published",
+      "created_at": "2026-10-27T14:38:30.786Z",
+      "updated_at": "2026-10-27T14:49:48.083Z",
+      "drive_files": [
+        {
+          "file_id": "1Ekjtsi-mdZToBc3EzOSmCtKtvl3EZJ5l",
+          "name": "SumatraPDF - v3.6.1 - Windows x64 - Freeware.rar",
+          "mime_type": "application/x-compressed",
+          "size": "10031830",
+          "modified_time": "2026-09-30T05:11:34.000Z",
+          "web_url": "https://drive.google.com/file/d/1Ekjtsi-mdZToBc3EzOSmCtKtvl3EZJ5l/view?usp=drivesdk",
+          "download_url": "https://drive.google.com/uc?id=1Ekjtsi-mdZToBc3EzOSmCtKtvl3EZJ5l&export=download",
+          "can_download": 1
+        }
+      ]
+    }
+  ]
 }
