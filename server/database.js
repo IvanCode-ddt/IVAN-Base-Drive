@@ -2,6 +2,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { publicPost } from './public-post.js';
 export function openDatabase(filename) {
   if (filename !== ':memory:') mkdirSync(path.dirname(filename), { recursive: true });
   const db = new DatabaseSync(filename);
@@ -52,11 +53,7 @@ export function openDatabase(filename) {
   return {
     close: () => db.close(),
     linkedFiles,
-    publicPost(post) {
-      if (!post || post.status !== 'published') return null;
-      const { drive_file_id, drive_files, ...safe } = post;
-      return { ...safe, drive_files: drive_files.filter(f => f.sharing_confirmed === 1).map(f => ({ file_id:f.file_id, name:f.name, mime_type:f.mime_type, size:f.size, modified_time:f.modified_time, web_url:f.web_url, download_url:f.can_download===1?f.download_url:'', can_download:f.can_download })) };
-    },
+    publicPost,
     linkFile(postId, file) {
       db.prepare(`INSERT INTO post_drive_files(post_id,file_id,name,mime_type,size,modified_time,web_url,download_url,resource_key,can_download,sharing_access,metadata_checked_at,linked_at)
         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(post_id,file_id) DO NOTHING`).run(postId,file.file_id,file.name,file.mime_type,file.size,file.modified_time,file.web_url,file.download_url||'',file.resource_key||'',file.can_download??null,file.sharing_access||'unknown',file.metadata_checked_at||'',new Date().toISOString());

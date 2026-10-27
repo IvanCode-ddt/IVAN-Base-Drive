@@ -1,5 +1,42 @@
 # IVAN Base Drive — Giai đoạn 3B
 
+## Xuất website tĩnh lên GitHub Pages
+
+Express, OAuth, SQLite và Admin tiếp tục chạy local tại `http://localhost:3000`. Website GitHub Pages chỉ đọc snapshot JSON, không có đăng nhập quản trị hoặc API backend.
+
+Sau khi thêm/sửa bài và xác nhận quyền chia sẻ file Drive trong Admin:
+
+```powershell
+npm.cmd run export
+npm.cmd test
+```
+
+Lệnh export chỉ đọc database theo DATABASE_PATH trong `.env`, không cần đăng nhập OAuth, không gọi Google, không chạy migration và không sửa bài viết. Chỉ xuất Published cùng file Drive có sharing_confirmed=1; trường công khai dùng chung allowlist với API. Draft, email xác nhận, secret/token và metadata file chưa xác nhận không nằm trong snapshot.
+
+Kết quả:
+
+```text
+docs/
+  index.html
+  .nojekyll
+  content/posts.json
+  css/style.css
+  js/main.js, data.js, content.js, post-source.js
+  images/...
+```
+
+**Cấu hình GitHub Pages cần dùng thư mục `/docs`:** vào repository → Settings → Pages → Deploy from a branch → chọn nhánh chứa source và `/docs`, rồi Save. Thao tác này do bạn thực hiện; script không commit, push hoặc deploy. Nếu Pages đang dùng root `/`, phải chuyển sang `/docs` hoặc tự cấu hình quy trình triển khai chỉ lấy thư mục docs. Các báo cáo Markdown đã có trong docs được giữ nguyên, không bị xóa.
+
+Sau khi kiểm tra nội dung JSON và `git status`, bạn tự commit/push các file public được tạo/cập nhật trong docs theo quy trình Git của mình. Không thêm `.env`, database, node_modules hoặc credential. Không cần đưa backend lên dịch vụ khác. URL website có dạng `https://TEN-TAI-KHOAN.github.io/IVAN-Base-Drive/`; các đường dẫn CSS/JS/JSON đều tương đối, bài chi tiết dùng `#post/SLUG` để tải lại không bị 404.
+
+Frontend dùng Express khi hostname là localhost/127.0.0.1/::1 và port 3000. Các địa chỉ khác (gồm GitHub Pages và preview tĩnh ở port khác) đọc `content/posts.json`. Không tự fallback sang dữ liệu tĩnh khi API local lỗi, tránh hiển thị nhầm bài cũ. Local Admin vẫn chỉ được bảo vệ bởi backend như trước; bản docs không chứa Admin.
+
+Để xem thử bản tĩnh, dùng Live Server mở `docs/index.html` (port khác 3000), không mở bằng file://. Có thể kiểm tra nội dung/tài nguyên dưới đường dẫn `/IVAN-Base-Drive/` bằng bộ test đã cung cấp.
+
+Mỗi lần thêm, sửa, xuất bản, chuyển thành Draft, ẩn hoặc gỡ liên kết file: chạy lại export và cập nhật docs trên GitHub. Bản GitHub Pages không tự đọc thay đổi SQLite. Export thay toàn bộ snapshot, vì vậy bài chuyển Draft hoặc file bỏ xác nhận sẽ biến mất ở snapshot mới. Sau khi Pages cập nhật, tải lại trang nếu trình duyệt còn cache. Dữ liệu từng được xuất công khai có thể vẫn tồn tại trong Git history/cache; không dùng snapshot cho nội dung bí mật.
+
+Liên kết Drive vẫn do Google kiểm soát: không đổi quyền chia sẻ, không vượt cảnh báo tải. File cũ chưa có download_url vẫn dùng nút Xem trên Google Drive dự phòng.
+
 Thư viện HTML/CSS/JavaScript dùng Express và SQLite. Tích hợp Google Drive API chỉ đọc metadata; không có React hoặc dữ liệu demo tự động. Giữ nguyên Git history; không cần reset hoặc tạo lại repository.
 
 ## Chạy trên Windows / PowerShell

@@ -1,0 +1,29 @@
+export function isLocalBackend(location) {
+  return ['localhost','127.0.0.1','[::1]','::1'].includes(location.hostname) && location.port === '3000';
+}
+export function createPostSource({location=globalThis.location,fetcher=globalThis.fetch}={}) {
+  const local=isLocalBackend(location);
+  let snapshot;
+  async function json(url) {
+    const response=await fetcher(url,{cache:'no-store'});
+    if(!response.ok) throw new Error(response.status===404?'Bài viết không tồn tại hoặc chưa được xuất bản.':'Không tải được dữ liệu bài viết.');
+    return response.json();
+  }
+  async function staticPosts() {
+    if(!snapshot) snapshot=json(new URL('./content/posts.json',location.href).href).then(data=>{
+      if(data.schemaVersion!==1 || !Array.isArray(data.posts) || data.posts.some(p=>p.status!=='published'))throw new Error('Dữ liệu tĩnh không hợp lệ. Hãy xuất lại website.');
+      return data.posts;
+    }).catch(error=>{snapshot=undefined;throw error;});
+    return snapshot;
+  }
+  return {
+    local,
+    list:()=>local?json('/api/posts'):staticPosts(),
+    async get(slug) {
+      if(local)return json(`/api/posts/${encodeURIComponent(slug)}`);
+      const post=(await staticPosts()).find(p=>p.slug===slug);
+      if(!post)throw new Error('Bài viết không tồn tại hoặc chưa được xuất bản.');
+      return post;
+    },
+  };
+}
