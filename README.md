@@ -307,3 +307,6 @@ node scripts/check-drive-download.mjs FILE_ID RESOURCE_KEY
 Script không đọc .env/cookie/token và không gọi API quản trị. Nó thử trang xem ẩn danh, lấy link tải của file từ API công khai localhost rồi gửi GET tới đúng URL đã lưu. Chỉ đọc mẫu tối đa khoảng 64 KB (một chunk có thể lớn hơn), hủy luồng sau khi đủ bằng chứng; không lưu file lên server. Phân biệt `download-started`, `google-confirmation-required`, `login-required`, `http-error`, và chưa có link được xác nhận. Kết quả bắt đầu tải không có nghĩa đã tải và kiểm tra toàn bộ file. Script không tự công khai bài hoặc thay quyền chia sẻ.
 
 Nếu OAuth báo lỗi mạng khi chạy trong môi trường sandbox hạn chế Internet, chạy `npm.cmd start` trong terminal Windows có quyền kết nối Google. Đăng nhập mới tại `/login`, không tải lại URL callback cũ. Thông báo OAuth phân biệt lỗi Client, redirect, mã hết hạn và mạng; log chỉ ghi mã phân loại, không ghi phản hồi chứa credential.
+# Khởi động Admin trên Windows
+
+Nhấp đúp **IVAN-Admin.cmd**, giữ cửa sổ mở và nhấn **Ctrl+C** để tắt server. Hướng dẫn tạo shortcut Desktop, khắc phục lỗi và đăng website: [WINDOWS-ADMIN.md](WINDOWS-ADMIN.md).
