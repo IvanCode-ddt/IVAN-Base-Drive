@@ -80,6 +80,10 @@ export function createApp({ config, db, oauthClient, driveRequest, uploadDir=pat
         req.session.drive = { access_token:tokens.access_token, scope:tokens.scope, expiry_date:tokens.expiry_date || Date.now()+3600000 };
       }
       await new Promise((resolve,reject) => req.session.save(error => error ? reject(error) : resolve()));
+      // A 302 keeps the Google redirect chain cross-site, so the local guard would
+      // reject /admin. Commit a local document first; its navigation is same-origin.
+      // Static markup only: never include OAuth query parameters or credentials.
+      if(config.localAdminMode)return res.type('html').send('<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="referrer" content="no-referrer"><meta http-equiv="refresh" content="0;url=/admin"><title>Đã kết nối Google Drive</title></head><body><p>Đã kết nối Google Drive. <a href="/admin">Mở Dashboard</a></p></body></html>');
       res.redirect('/admin');
     } catch(error) {
       const failure = oauthFailure(error, stage);

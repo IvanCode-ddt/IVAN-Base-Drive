@@ -40,4 +40,14 @@ Chức năng này chỉ hoạt động trên local, cần phiên admin, CSRF và
 
 ## Kiểm thử an toàn
 
+### Sửa lỗi LOCAL_ONLY sau kết nối Google Drive
+
+Sau khi cập nhật mã nguồn, nhấn Ctrl+C tắt server cũ và mở lại `IVAN-Admin.cmd`. Vào `http://localhost:3000/admin`, mở Kho Google Drive và kết nối lại Google; không tải lại callback cũ. `http://127.0.0.1:3000/admin` sẽ chuyển về localhost để giữ đúng cookie và callback `http://localhost:3000/auth/google/callback` đã đăng ký.
+
+Kiểm thử Edge tái hiện lỗi cũ: GET `/auth/google` → 302; GET `/auth/google/callback` từ Google → 302; GET `/admin` tiếp theo vẫn mang `Sec-Fetch-Site: cross-site` → 403 LOCAL_ONLY. Đây là lỗi middleware chặn bước sau callback, không phải sai Client ID hay quyền Drive.
+
+Callback local nay chấp nhận điều hướng GET không phụ thuộc Origin/Referer của Google, nhưng vẫn kiểm tra socket loopback, Host, không qua proxy, session/state/nonce/PKCE, tuổi phiên, tài khoản quản trị và redirect URI. Sau xác thực thành công, server trả một trang HTML local tối giản tự mở Dashboard, kết thúc chuỗi redirect cross-site. Không đưa code, state hoặc token vào HTML. Các route khác vẫn chặn Origin khác và các API ghi vẫn cần CSRF.
+
+Kiểm thử trình duyệt dùng trang Google giả lập và dữ liệu Drive thử nghiệm, không sử dụng credential thật hoặc gọi Google thật. Không có commit/push thật trong kiểm thử.
+
 `npm.cmd test` kiểm tra launcher bằng tiến trình Node riêng trên cổng tạm: server tắt, đã chạy, cổng bị chiếm, readiness, thiếu dependencies và timeout. Trình duyệt được mô phỏng, không mở cửa sổ khi test. Kiểm thử xuất bản sử dụng repository tạm, chặn thao tác remote/push; không commit hoặc push repository thật. `npm.cmd run test:browser` kiểm tra giao diện desktop/mobile với publisher mô phỏng.
