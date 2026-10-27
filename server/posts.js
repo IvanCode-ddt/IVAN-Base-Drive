@@ -1,4 +1,5 @@
 export const categories = ['film', 'game', 'music', 'app', 'other'];
+import { isUploadPath } from '../js/media.js';
 export class InputError extends Error {}
 function text(body, key, max, required = false) {
   const value = body[key] ?? '';
@@ -20,7 +21,8 @@ export function validatePost(body) {
   if (!['draft', 'published'].includes(body.status)) throw new InputError('Trạng thái không hợp lệ.');
   const description = text(body, 'description', 500, true);
   const introduction = text(body, 'introduction', 30000), instructions = text(body, 'instructions', 30000);
-  const cover_url = httpsUrl(text(body, 'cover_url', 2048), 'cover_url');
+  const coverValue=text(body,'cover_url',2048);
+  const cover_url = isUploadPath(coverValue)?coverValue:httpsUrl(coverValue, 'cover_url');
   const attachment_url = httpsUrl(text(body, 'attachment_url', 2048), 'attachment_url');
   const media_url = httpsUrl(text(body, 'media_url', 2048), 'media_url');
   const drive_file_id = text(body, 'drive_file_id', 200);
@@ -28,7 +30,7 @@ export function validatePost(body) {
   if (!Array.isArray(body.images) || body.images.length > 12) throw new InputError('Tối đa 12 ảnh minh họa.');
   const images = body.images.map(value => {
     if (typeof value !== 'string' || !value || value.length > 2048) throw new InputError('URL ảnh không hợp lệ.');
-    return httpsUrl(value, 'images');
+    return isUploadPath(value)?value:httpsUrl(value, 'images');
   });
   return { title, slug, category: body.category, description, introduction, instructions, cover_url, images, attachment_url, drive_file_id, media_url, status: body.status };
 }

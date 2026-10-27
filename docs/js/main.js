@@ -1,6 +1,6 @@
-import { CATEGORIES,filterPosts } from './data.js?v=6';
-import { cover,detailHTML,escapeHTML,categoryName } from './content.js?v=6';
-import { createPostSource } from './post-source.js?v=6';
+import { CATEGORIES,filterPosts } from './data.js?v=9';
+import { cover,detailHTML,escapeHTML,categoryName } from './content.js?v=9';
+import { createPostSource } from './post-source.js?v=9';
 const source=createPostSource();
 const $=s=>document.querySelector(s);
 let posts=[],category='all',libraryScroll=0,routeVersion=0;

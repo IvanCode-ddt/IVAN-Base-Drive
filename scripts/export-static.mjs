@@ -1,9 +1,10 @@
 import { DatabaseSync } from 'node:sqlite';
-import { readFile, mkdir, writeFile, rename, rm, copyFile, readdir } from 'node:fs/promises';
+import { readFile, mkdir, writeFile, rename, rm, copyFile, readdir, lstat } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { randomUUID } from 'node:crypto';
 import { publicPost } from '../server/public-post.js';
+import { localImages, isUploadPath } from '../js/media.js';
 
 const projectRoot = fileURLToPath(new URL('../', import.meta.url));
 export function readPublished(filename) {
@@ -11,7 +12,8 @@ export function readPublished(filename) {
   const db = new DatabaseSync(filename, { readOnly:true });
   try {
     db.exec('BEGIN');
-    const posts = db.prepare("SELECT * FROM posts WHERE status='published' ORDER BY updated_at DESC,id").all();
+    const hasTrash=db.prepare('PRAGMA table_info(posts)').all().some(column=>column.name==='deleted_at');
+    const posts = db.prepare(`SELECT * FROM posts WHERE status='published' ${hasTrash?'AND deleted_at IS NULL':''} ORDER BY updated_at DESC,id`).all();
     const files = db.prepare('SELECT * FROM post_drive_files WHERE post_id=? AND sharing_confirmed=1 ORDER BY linked_at,file_id');
     const result = posts.map(post => publicPost({...post, images:JSON.parse(post.images), drive_files:files.all(post.id)}));
     db.exec('COMMIT'); return result;
@@ -33,13 +35,22 @@ export async function exportStatic({ databasePath=path.resolve(process.env.DATAB
   const html=(await readFile(path.join(sourceDir,'index.html'),'utf8')).replace(/<a\b[^>]*\bdata-local-admin\b[^>]*>.*?<\/a>/g,'');
   await writeFile(path.join(outputDir,'index.html'),html,'utf8');
   await copyFile(path.join(sourceDir,'css/style.css'),path.join(outputDir,'css/style.css'));
-  for(const file of ['main.js','data.js','content.js','post-source.js']) await copyFile(path.join(sourceDir,'js',file),path.join(outputDir,'js',file));
+  for(const file of ['main.js','data.js','content.js','post-source.js','media.js','markdown.js']) await copyFile(path.join(sourceDir,'js',file),path.join(outputDir,'js',file));
+  const uploads=[...new Set(posts.flatMap(localImages))];
+  for(const relative of uploads){
+    const from=path.join(sourceDir,relative);
+    if(!(await lstat(from)).isFile())throw new Error('Referenced upload is not a regular file');
+    await mkdir(path.join(outputDir,'uploads'),{recursive:true});
+    await copyFile(from,path.join(outputDir,relative));
+  }
   await copyImages(path.join(sourceDir,'images'),path.join(outputDir,'images'));
   await writeFile(path.join(outputDir,'.nojekyll'),'','utf8');
   const temporary=path.join(contentDir,`posts.${randomUUID()}.tmp`);
   try {
     await writeFile(temporary,JSON.stringify({schemaVersion:1,posts},null,2)+'\n','utf8');
     await rename(temporary,path.join(contentDir,'posts.json'));
+    const uploaded=await readdir(path.join(outputDir,'uploads')).catch(error=>{if(error.code==='ENOENT')return[];throw error;});
+    for(const name of uploaded)if(isUploadPath(`uploads/${name}`)&&!uploads.includes(`uploads/${name}`))await rm(path.join(outputDir,'uploads',name));
   } finally { await rm(temporary,{force:true}); }
   return { count:posts.length, outputDir };
 }

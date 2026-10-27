@@ -3,6 +3,7 @@ node_modules/
 .env.*
 !.env.example
 /data/
+/uploads/
 *.sqlite
 *.sqlite-*
 *.sqlite3
@@ -10,6 +11,7 @@ node_modules/
 *.db
 *.db-*
 coverage/
+test-artifacts/
 *.log
 credentials*.json
 client_secret*.json

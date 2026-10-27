@@ -2,6 +2,26 @@ import { randomUUID } from 'node:crypto';
 import { createDrive, driveId, DriveError, DEFAULT_ROOT } from './drive.js';
 import { validatePost } from './posts.js';
 
+export async function selectedDriveFiles(body,req,config,driveRequest) {
+  if(!Object.hasOwn(body,'drive_file_ids'))return undefined; // Legacy API clients keep existing links.
+  const ids=body.drive_file_ids;
+  if(!Array.isArray(ids)||ids.length>50)throw new DriveError(400,'DRIVE_INPUT','Chọn tối đa 50 file Drive.');
+  ids.forEach(driveId);
+  if(new Set(ids).size!==ids.length)throw new DriveError(400,'DRIVE_INPUT','Danh sách file Drive bị trùng.');
+  const drive=createDrive(config,req.session.drive,driveRequest),files=[];
+  const approved=body.drive_public_file_ids;
+  if(approved!==undefined&&(!Array.isArray(approved)||approved.some(id=>!ids.includes(id))||new Set(approved).size!==approved.length))throw new DriveError(400,'DRIVE_INPUT','Danh sách xác nhận chia sẻ không khớp file đã chọn.');
+  for(const id of ids){
+    const file=await drive.file(id);
+    if(approved!==undefined){
+      file.requested_sharing=approved.includes(id);
+      if(file.requested_sharing&&file.sharing_access!=='anyone')throw new DriveError(403,'DRIVE_PRIVATE','File chưa có quyền Anyone trên Google Drive. Có thể lưu riêng tư nhưng không công khai file này.');
+    }
+    files.push(file);
+  }
+  return files;
+}
+
 export function registerDriveRoutes(app, { db, config, csrf, driveRequest, revokeToken }) {
   const drive = req => createDrive(config, req.session.drive, driveRequest);
   const requirePost = id => {

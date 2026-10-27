@@ -8,12 +8,16 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { validatePost, InputError } from './posts.js';
 import { DRIVE_SCOPE, DriveError } from './drive.js';
-import { registerDriveRoutes } from './drive-routes.js';
+import { registerDriveRoutes, selectedDriveFiles } from './drive-routes.js';
 import { oauthFailure } from './oauth-error.js';
+import { registerMedia } from './media.js';
+import {createPublisher} from './publisher.js';
+import {registerPublishRoutes} from './publish-routes.js';
+import {PublishError} from './publish-git.js';
 const root = fileURLToPath(new URL('../', import.meta.url));
 const random = () => randomBytes(32).toString('hex');
 const equal = (a,b) => typeof a === 'string' && typeof b === 'string' && Buffer.byteLength(a) === Buffer.byteLength(b) && timingSafeEqual(Buffer.from(a),Buffer.from(b));
-export function createApp({ config, db, oauthClient, driveRequest }) {
+export function createApp({ config, db, oauthClient, driveRequest, uploadDir=path.join(root,'uploads'), publisher }) {
   const app = express();
   const oauth = oauthClient || new OAuth2Client(config.clientId, config.clientSecret, config.redirectUri);
   app.disable('x-powered-by');
@@ -71,12 +75,41 @@ export function createApp({ config, db, oauthClient, driveRequest }) {
   app.get('/api/posts', (req,res) => { res.set('Cache-Control','no-store'); res.json(db.list(true).map(post => db.publicPost(post))); });
   app.get('/api/posts/:slug', (req,res) => { res.set('Cache-Control','no-store'); const post=db.publicPost(db.published(req.params.slug)); post ? res.json(post) : res.status(404).json({error:'Không tìm thấy bài viết.'}); });
   app.use('/api/admin', admin);
+  registerPublishRoutes(app,{config,csrf,publisher:publisher||createPublisher({root,databasePath:config.databasePath,adminEmail:config.adminEmail,secrets:[config.clientSecret,config.sessionSecret]})});
+  registerMedia(app,{admin,csrf,db,uploadDir});
   registerDriveRoutes(app, {db,config,csrf,driveRequest,revokeToken:token => oauth.revokeToken(token)});
-  app.get('/api/admin/session', (req,res) => res.json({ email:req.session.admin.email, csrfToken:req.session.csrf }));
+  app.get('/api/admin/session', (req,res) => res.json({ email:req.session.admin.email, csrfToken:req.session.csrf, saveContractVersion:2 }));
   app.get('/api/admin/posts', (req,res) => res.json(db.list()));
+  app.get('/api/admin/trash',(req,res)=>res.json(db.trash()));
+  app.get('/api/admin/settings',(req,res)=>res.json({email:config.adminEmail,driveRootId:config.driveRootId,exportCommand:'npm.cmd run export',postCount:db.list().length,trashCount:db.trash().length}));
+  app.delete('/api/admin/posts/:id',csrf,(req,res)=>{
+    const post=db.get(req.params.id);if(!post)return res.status(404).json({error:'Không tìm thấy bài viết.'});
+    if(req.body?.confirmTitle!==post.title)return res.status(400).json({error:'Tên xác nhận không khớp bài viết.'});
+    db.softDelete(post.id);res.json({ok:true});
+  });
+  app.post('/api/admin/trash/:id/restore',csrf,(req,res)=>{
+    const post=db.get(req.params.id,true);if(!post?.deleted_at)return res.status(404).json({error:'Không tìm thấy bài trong thùng rác.'});
+    if(req.body?.confirmTitle!==post.title)return res.status(400).json({error:'Tên xác nhận không khớp.'});
+    db.restore(post.id);res.json(db.get(post.id));
+  });
+  app.delete('/api/admin/trash/:id',csrf,(req,res)=>{
+    const post=db.get(req.params.id,true);if(!post?.deleted_at)return res.status(404).json({error:'Chỉ xóa vĩnh viễn bài trong thùng rác.'});
+    if(req.body?.confirmTitle!==post.title||req.body?.action!=='purge')return res.status(400).json({error:'Cần xác nhận riêng việc xóa vĩnh viễn.'});
+    db.purge(post.id);res.json({ok:true});
+  });
   app.get('/api/admin/posts/:id', (req,res) => { const post=db.get(req.params.id); post ? res.json(post) : res.status(404).json({error:'Không tìm thấy bài viết.'}); });
-  app.post('/api/admin/posts', csrf, (req,res) => res.status(201).json(db.create(validatePost(req.body))));
-  app.put('/api/admin/posts/:id', csrf, (req,res) => { const post=db.update(req.params.id,validatePost(req.body)); post ? res.json(post) : res.status(404).json({error:'Không tìm thấy bài viết.'}); });
+  app.post('/api/admin/posts', csrf, async (req,res) => {
+    if(req.body?.cms_contract===2&&!Array.isArray(req.body.drive_file_ids))throw new InputError('Thiếu danh sách file của form. Chưa lưu bài viết.');
+    const post=validatePost(req.body),files=await selectedDriveFiles(req.body,req,config,driveRequest);
+    res.status(201).json(db.saveWithFiles(post,null,files,config.adminEmail));
+  });
+  app.put('/api/admin/posts/:id', csrf, async (req,res) => {
+    if(req.body?.cms_contract===2&&!Array.isArray(req.body.drive_file_ids))throw new InputError('Thiếu danh sách file của form. Chưa lưu thay đổi.');
+    const validated=validatePost(req.body);
+    if(!db.get(req.params.id))return res.status(404).json({error:'Không tìm thấy bài viết.'});
+    const files=await selectedDriveFiles(req.body,req,config,driveRequest);
+    res.json(db.saveWithFiles(validated,req.params.id,files,config.adminEmail));
+  });
   app.post('/api/admin/preview', csrf, (req,res) => res.json(validatePost(req.body)));
   app.post('/api/admin/logout', csrf, (req,res,next) => req.session.destroy(error => { if(error)return next(error);res.clearCookie('ivan.sid',{httpOnly:true,sameSite:'lax',secure:config.secure});res.json({ok:true}); }));
   app.use('/admin', admin, express.static(path.join(root,'admin'), {index:'index.html', dotfiles:'deny'}));
@@ -85,11 +118,13 @@ export function createApp({ config, db, oauthClient, driveRequest }) {
   for(const folder of ['css','js','images','sounds']) app.use(`/${folder}`,express.static(path.join(root,folder),{dotfiles:'deny'}));
   app.use((req,res) => res.status(404).json({error:'Không tìm thấy đường dẫn.'}));
   app.use((error,req,res,next) => {
+    if(error instanceof PublishError)return res.status(error.status).json({error:error.message,code:error.code,hint:error.hint});
     if(error instanceof DriveError) return res.status(error.status).json({error:error.message,code:error.code});
     if(error instanceof InputError) return res.status(400).json({error:error.message});
     if(error.code?.startsWith('ERR_SQLITE') && error.message.includes('UNIQUE')) return res.status(409).json({error:'Slug đã tồn tại. Hãy chọn slug khác.'});
-    if(error.type==='entity.too.large')return res.status(413).json({error:'Dữ liệu vượt giới hạn 150 KB.'});
+    if(error.type==='entity.too.large')return res.status(413).json({error:'Dữ liệu vượt giới hạn cho phép (JSON 150 KB; ảnh 5 MB).'});
     if(error instanceof SyntaxError && 'body' in error)return res.status(400).json({error:'JSON không hợp lệ.'});
+    if(error.postSaveRolledBack)return res.status(500).json({error:'Không lưu được bài viết và file đính kèm. Các thay đổi đã được rollback; vui lòng thử lại.'});
     console.error('Request failed:',error.code || error.name);
     res.status(500).json({error:'Lỗi máy chủ. Vui lòng thử lại.'});
   });

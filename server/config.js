@@ -13,5 +13,5 @@ export function readConfig(env = process.env) {
   if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET) throw new Error('Thiếu cấu hình Google OAuth trong .env.');
   const driveRootId = env.GOOGLE_DRIVE_FOLDER_ID || '15wgG35QoLwK6Z5H1re_HCCednk7-O3Qp';
   if (!/^[a-zA-Z0-9_-]{1,200}$/.test(driveRootId)) throw new Error('GOOGLE_DRIVE_FOLDER_ID không hợp lệ.');
-  return { port, baseUrl, redirectUri, adminEmail, driveRootId, clientId: env.GOOGLE_CLIENT_ID, clientSecret: env.GOOGLE_CLIENT_SECRET, sessionSecret: env.SESSION_SECRET, databasePath: path.resolve(env.DATABASE_PATH || 'data/ivan.sqlite'), secure: base.protocol === 'https:' };
+  return { port, baseUrl, redirectUri, adminEmail, driveRootId, nodeEnv:env.NODE_ENV||'development', clientId: env.GOOGLE_CLIENT_ID, clientSecret: env.GOOGLE_CLIENT_SECRET, sessionSecret: env.SESSION_SECRET, databasePath: path.resolve(env.DATABASE_PATH || 'data/ivan.sqlite'), secure: base.protocol === 'https:' };
 }

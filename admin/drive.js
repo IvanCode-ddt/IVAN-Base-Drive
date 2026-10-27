@@ -1,4 +1,5 @@
-import { escapeHTML, categoryName } from '/js/content.js?v=5';
+import { normalizeSearch } from '/js/data.js?v=9';
+import { escapeHTML, categoryName } from '/js/content.js?v=9';
 
 const $ = selector => document.querySelector(selector);
 const esc = escapeHTML;
@@ -16,8 +17,12 @@ const dateLabel = value => value ? new Date(value).toLocaleString('vi-VN', { tim
 export async function initDrive({ api, openDraft, refreshPosts, beforeDraft }) {
   let folderId, pageToken, nextToken, previousPages = [], selectedPost = null, requestVersion = 0;
   const notice = (text, error = false) => { $('#drive-message').textContent = text; $('#drive-message').dataset.error = String(error); };
+  const cachedFiles=new Map();let visibleFiles=[];
+  function searchFiles(){const query=normalizeSearch($('#drive-search').value.trim());return query?[...cachedFiles.values()].filter(file=>normalizeSearch(file.name).includes(query)):visibleFiles;}
+  function renderFiles(files){      $('#drive-files').innerHTML = files.length ? files.map(file => `<article class="drive-file"><div><h3>${file.is_folder ? '▣ ' : ''}${esc(file.name)}</h3><p>${esc(file.mime_type)} · ${sizeLabel(file.size)} · ${esc(dateLabel(file.modified_time))}</p></div><div class="drive-actions">${file.is_folder ? `<button type="button" class="secondary-button" data-folder="${esc(file.file_id)}">Mở thư mục</button>` : file.is_shortcut ? '<span>Shortcut không được hỗ trợ</span>' : `<button type="button" class="secondary-button" data-attach="${esc(file.file_id)}">Gắn vào bài viết</button><button type="button" class="secondary-button" data-draft="${esc(file.file_id)}">Tạo bài Draft</button>`}</div></article>`).join('') : '<p>Không có file phù hợp trong danh sách đang xem.</p>';}
+  $('#drive-search').addEventListener('input',()=>renderFiles(searchFiles()));
   async function targets() {
-    const selected = $('#drive-target').value;
+    const selected = $('#drive-target').value || selectedPost || '';
     const posts = await api('/api/admin/posts');
     $('#drive-target').innerHTML = '<option value="">Chọn bài viết để gắn file…</option>' + posts.map(p => `<option value="${esc(p.id)}">${esc(p.title)} · ${p.status === 'published' ? 'Published' : 'Draft'}</option>`).join('');
     if (posts.some(p => p.id === selected)) $('#drive-target').value = selected;
@@ -41,14 +46,14 @@ export async function initDrive({ api, openDraft, refreshPosts, beforeDraft }) {
       const data = await api(`/api/admin/drive/files?${params}`);
       if (version !== requestVersion) return;
       folderId = data.folderId; pageToken = nextPage; nextToken = data.nextPageToken;
-      $('#drive-breadcrumb').innerHTML = data.breadcrumb.map((part, index) => `${index ? '<span aria-hidden="true"> / </span>' : ''}<button class="secondary-button" data-folder="${esc(part.id)}" ${index === data.breadcrumb.length-1 ? 'aria-current="location"' : ''}>${esc(part.name)}</button>`).join('');
-      $('#drive-files').innerHTML = data.files.length ? data.files.map(file => `<article class="drive-file"><div><h3>${file.is_folder ? '▣ ' : ''}${esc(file.name)}</h3><p>${esc(file.mime_type)} · ${sizeLabel(file.size)} · ${esc(dateLabel(file.modified_time))}</p></div><div class="drive-actions">${file.is_folder ? `<button class="secondary-button" data-folder="${esc(file.file_id)}">Mở thư mục</button>` : file.is_shortcut ? '<span>Shortcut không được hỗ trợ</span>' : `<button class="secondary-button" data-attach="${esc(file.file_id)}">Gắn vào bài viết</button><button class="secondary-button" data-draft="${esc(file.file_id)}">Tạo bài Draft</button>`}</div></article>`).join('') : '<p>Thư mục này đang trống.</p>';
+      $('#drive-breadcrumb').innerHTML = data.breadcrumb.map((part, index) => `${index ? '<span aria-hidden="true"> / </span>' : ''}<button type="button" class="secondary-button" data-folder="${esc(part.id)}" ${index === data.breadcrumb.length-1 ? 'aria-current="location"' : ''}>${esc(part.name)}</button>`).join('');
+      visibleFiles=data.files;for(const file of data.files)cachedFiles.set(file.file_id,file);renderFiles(searchFiles());
       $('#drive-prev').disabled = !previousPages.length; $('#drive-next').disabled = !nextToken;
       notice(`Đã đồng bộ lúc ${dateLabel(data.syncedAt)}.${data.incompleteSearch ? ' Google trả kết quả chưa đầy đủ; hãy thử lại.' : ''}`);
     } catch (error) { if (version === requestVersion) notice(error.message, true); }
   }
   async function showPost(post) {
-    selectedPost = post?.id || null;
+    selectedPost = post?.id || null; if(selectedPost) $('#drive-target').value=selectedPost;
     $('#linked-drive-files').innerHTML = '';
     if (!selectedPost) { $('#linked-drive-files').textContent = 'Lưu bài viết trước, sau đó gắn file từ Kho Google Drive.'; return; }
     const id = selectedPost;

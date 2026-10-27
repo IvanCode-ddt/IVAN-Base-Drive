@@ -66,7 +66,7 @@ test('public and preview rendering escape stored XSS and unsafe URLs',()=>{
 test('SQLite persists data after close and reopen',()=>{
  const dir=mkdtempSync(path.join(tmpdir(),'ivan-db-test-')),file=path.join(dir,'test.sqlite');let db;
  try{db=openDatabase(file);const saved=db.create(validatePost(post));db.close();db=openDatabase(file);assert.equal(db.get(saved.id).title,post.title);assert.deepEqual(db.get(saved.id).images,[]);}
- finally{db?.close();for(const suffix of ['','-wal','-shm'])rmSync(file+suffix,{force:true});rmdirSync(dir);}
+ finally{db?.close();for(const suffix of ['','-wal','-shm'])rmSync(file+suffix,{force:true});rmSync(dir,{recursive:true,force:true});}
 });
 test('configuration fails closed for missing secrets and bad callback',()=>{
  assert.throws(()=>readConfig({}),/SESSION_SECRET/);

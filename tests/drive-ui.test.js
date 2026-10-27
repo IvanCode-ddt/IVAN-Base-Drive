@@ -11,7 +11,7 @@ test('Drive UI opens library, renders private links, attaches, creates draft and
   const previousDocument=globalThis.document;
   globalThis.document={querySelector:element};
   try {
-    const moduleSource=readFileSync(new URL('../admin/drive.js',import.meta.url),'utf8').replace("'/js/content.js?v=5'",JSON.stringify(new URL('../js/content.js',import.meta.url).href));
+    const moduleSource=readFileSync(new URL('../admin/drive.js',import.meta.url),'utf8').replace("'/js/content.js?v=9'",JSON.stringify(new URL('../js/content.js',import.meta.url).href)).replace("'/js/data.js?v=9'",JSON.stringify(new URL('../js/data.js',import.meta.url).href));
     const {initDrive}=await import('data:text/javascript;base64,'+Buffer.from(moduleSource).toString('base64'));
     const calls=[];let draftOpened=false,refreshes=0;
     const file={file_id:'file_123',name:'Private <img onerror=alert(1)>',mime_type:'application/zip',size:'1024',modified_time:'2026-10-27T00:00:00Z',sharing_confirmed:0};
@@ -38,8 +38,8 @@ test('Drive UI opens library, renders private links, attaches, creates draft and
     await element('#linked-drive-files').events.click({target:{closest:()=>confirmButton}});assert.equal(calls.filter(c=>c.method==='PUT').length,initialWrites);
     checkbox.checked=true;await element('#linked-drive-files').events.click({target:{closest:()=>confirmButton}});
     const confirmed=calls.find(c=>c.method==='PUT');assert.equal(JSON.parse(confirmed.body).sharingConfirmed,true);
-    const html=readFileSync(new URL('../admin/index.html',import.meta.url),'utf8');
+    const html=readFileSync(new URL('../admin/drive-library.html',import.meta.url),'utf8');
     for(const id of nodes.keys())assert.ok(html.includes(`id="${id.slice(1)}"`),`missing ${id}`);
-    const adminSource=readFileSync(new URL('../admin/admin.js',import.meta.url),'utf8');assert.ok(adminSource.includes('driveUI?.showPost(post)'));
+    const adminSource=readFileSync(new URL('../admin/admin.js',import.meta.url),'utf8');assert.ok(adminSource.includes('driveUI.fill(post)'));
   } finally { globalThis.document=previousDocument; }
 });

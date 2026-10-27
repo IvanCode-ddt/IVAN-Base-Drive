@@ -43,7 +43,7 @@ test('v2 migration preserves post, approval and links; new download metadata is 
   db.confirmFile(post.id,binary.id,snap,'admin@example.com');assert.equal(db.publicPost(db.get(post.id)).drive_files[0].download_url,snap.download_url);
   db.confirmFile(post.id,binary.id,null,'admin@example.com');assert.deepEqual(db.publicPost(db.get(post.id)).drive_files,[]);
   db.close();db=openDatabase(filename);assert.equal(db.get(post.id).drive_files[0].resource_key,'link-key');
- }finally{db?.close();for(const suffix of['','-wal','-shm'])rmSync(filename+suffix,{force:true});rmdirSync(dir);}
+ }finally{db?.close();for(const suffix of['','-wal','-shm'])rmSync(filename+suffix,{force:true});rmSync(dir,{recursive:true,force:true});}
 });
 
 test('anonymous HTTP checker distinguishes actual attachment bytes from Google confirmation/login/error without bypass',async()=>{

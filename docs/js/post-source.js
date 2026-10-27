@@ -1,5 +1,6 @@
 export function isLocalBackend(location) {
-  return ['localhost','127.0.0.1','[::1]','::1'].includes(location.hostname) && location.port === '3000';
+  const pathname=location.pathname||new URL(location.href).pathname;
+  return !pathname.startsWith('/api/admin/publish/previews/')&&['localhost','127.0.0.1','[::1]','::1'].includes(location.hostname) && location.port === '3000';
 }
 export function createPostSource({location=globalThis.location,fetcher=globalThis.fetch}={}) {
   const local=isLocalBackend(location);

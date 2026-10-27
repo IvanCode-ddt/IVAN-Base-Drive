@@ -150,7 +150,7 @@ test('v1 SQLite migration preserves posts and legacy IDs, stays private, and is 
   db=openDatabase(filename);let migrated=db.get(saved.id);
   assert.equal(migrated.title,saved.title);assert.equal(migrated.status,saved.status);assert.equal(migrated.created_at,saved.created_at);assert.equal(migrated.drive_file_id,'legacy_private_123');assert.equal(migrated.drive_files.length,1);assert.equal(migrated.drive_files[0].sharing_confirmed,0);assert.deepEqual(db.publicPost(migrated).drive_files,[]);
   db.close();db=openDatabase(filename);assert.equal(db.get(saved.id).drive_files.length,1);
- }finally{db?.close();for(const suffix of['','-wal','-shm'])rmSync(filename+suffix,{force:true});rmdirSync(dir);}
+ }finally{db?.close();for(const suffix of['','-wal','-shm'])rmSync(filename+suffix,{force:true});rmSync(dir,{recursive:true,force:true});}
 });
 
 test('ancestor cycle and excessively deep paths fail closed',async()=>{
@@ -159,4 +159,44 @@ test('ancestor cycle and excessively deep paths fail closed',async()=>{
  await assert.rejects(()=>drive.list('cycle_a'),error=>error.status===403);
  const deep=createDrive(config,{access_token:'test',scope:DRIVE_SCOPE},async(tokens,resource)=>({id:resource.slice(6),mimeType:FOLDER,parents:[String(Number(resource.slice(6))+1)]}));
  await assert.rejects(()=>deep.list('1'),error=>error.status===403);
+});
+
+test('one-save create/update validates selected IDs and atomically commits or rolls back post and links',async t=>{
+ const s=setup(t);await s.login();const token=await s.token();
+ const create=(slug,status,ids)=>s.write('post','/api/admin/posts',token,{...post,slug,status,drive_file_ids:ids});
+ const draft=(await create('one-save-draft','draft',['file_123']).expect(201)).body;
+ assert.equal(draft.status,'draft');assert.equal(draft.drive_files.length,1);
+ const published=(await create('one-save-published','published',['file_123','file_456']).expect(201)).body;
+ assert.equal(published.status,'published');assert.equal(published.drive_files.length,2);
+ assert.deepEqual((await request(s.app).get('/api/posts/one-save-published')).body.drive_files,[]);
+ const count=s.db.list().length;
+ for(const ids of [['secret_123'],['invalid id'],['file_123','file_123'],['shortcut_123'],['missing_123']]){
+  const result=await create('invalid-selection','draft',ids);assert.ok([400,403,404].includes(result.status));assert.equal(s.db.list().length,count);
+ }
+ await s.write('put',`/api/admin/posts/${published.id}`,token,{...post,slug:published.slug,status:'draft',drive_file_ids:['file_456']}).expect(200);
+ assert.deepEqual(s.db.linkedFiles(published.id).map(f=>f.file_id),['file_456']);
+ await s.write('put',`/api/admin/posts/${published.id}`,token,{...post,slug:published.slug,status:'published',drive_file_ids:['file_456','file_123']}).expect(200);
+ s.db.confirmFile(published.id,'file_456',await (await import('../server/drive.js')).createDrive(config,{access_token:'server-only-test-token',scope:DRIVE_SCOPE},s.transport).file('file_456'),config.adminEmail);
+ await s.write('put',`/api/admin/posts/${published.id}`,token,{...post,slug:published.slug,status:'published',drive_file_ids:['file_456','file_123']}).expect(200);
+ assert.equal(s.db.linkedFiles(published.id).find(f=>f.file_id==='file_456').sharing_confirmed,1);
+ const before=s.db.get(published.id),original=s.db.linkFile;
+ s.db.linkFile=function(id,file){original.call(this,id,file);throw new Error('forced transaction failure');};
+ const failed=await create('must-rollback','draft',['file_123']);assert.equal(failed.status,500);assert.ok(failed.body.error.includes('rollback'));assert.equal(s.db.list().length,count);
+ await s.write('put',`/api/admin/posts/${published.id}`,token,{...post,slug:published.slug,title:'Must not persist',status:'draft',drive_file_ids:['file_123']}).expect(500);
+ assert.deepEqual(s.db.get(published.id),before);
+ s.db.linkFile=original;
+ await s.write('put',`/api/admin/posts/${published.id}`,token,{...post,slug:published.slug,status:'published',drive_file_ids:[]}).expect(200);
+ assert.equal(s.db.linkedFiles(published.id).length,0);assert.ok(s.files.file_123,'source file unchanged');
+});
+
+test('Phase A: form-selected file reaches public API only with explicit consent; restricted data stays private',async t=>{
+ const s=setup(t);await s.login();const token=await s.token();
+ const response=await s.write('post','/api/admin/posts',token,{...post,slug:'phase-a',status:'published',drive_file_ids:['file_123'],drive_public_file_ids:['file_123']}).expect(201);
+ assert.equal(response.body.drive_files[0].file_id,'file_123');assert.equal(response.body.drive_files[0].sharing_confirmed,1);
+ const publicData=(await request(s.app).get('/api/posts/phase-a').expect(200)).body;
+ assert.equal(publicData.drive_files[0].file_id,'file_123');assert.ok(publicData.drive_files[0].download_url);assert.ok(detailHTML(publicData).includes('export=download'));
+ s.files.file_456.permissions=[{type:'user',role:'reader'}];
+ await s.write('post','/api/admin/posts',token,{...post,slug:'restricted',status:'published',drive_file_ids:['file_456'],drive_public_file_ids:['file_456']}).expect(403);
+ const privateSaved=(await s.write('post','/api/admin/posts',token,{...post,slug:'restricted',status:'published',drive_file_ids:['file_456'],drive_public_file_ids:[]}).expect(201)).body;
+ assert.equal(privateSaved.drive_files.length,1);assert.deepEqual((await request(s.app).get('/api/posts/restricted')).body.drive_files,[]);
 });

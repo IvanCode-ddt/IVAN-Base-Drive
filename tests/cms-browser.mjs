@@ -1,0 +1,97 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { chromium } from 'playwright';
+import sharp from 'sharp';
+import { mkdtemp,rm,mkdir } from 'node:fs/promises';
+import path from 'node:path';
+import { tmpdir } from 'node:os';
+import { randomBytes } from 'node:crypto';
+import { createApp } from '../server/app.js';
+import { openDatabase } from '../server/database.js';
+import { DRIVE_SCOPE,FOLDER } from '../server/drive.js';
+import {validatePost} from '../server/posts.js';
+
+test('CMS desktop and mobile: slug, Markdown, upload, draft/edit/publish and Drive picker',async()=>{
+ const dir=await mkdtemp(path.join(tmpdir(),'ivan-browser-')),db=openDatabase(':memory:');
+ let pending;
+ for(const[title,slug,status,category]of[['Tài liệu cài đặt','setup-guide','draft','app'],['Nhạc cuối tuần','weekend-music','published','music']])db.create(validatePost({title,slug,status,category,description:'Dashboard fixture',images:[]}));
+ const config={baseUrl:'http://127.0.0.1',redirectUri:'',adminEmail:'admin@example.com',clientId:'test',clientSecret:'test',sessionSecret:randomBytes(40).toString('hex'),secure:false,driveRootId:'test_root'};
+ const oauth={generateAuthUrl(p){pending=p;return`${config.baseUrl}/auth/google/callback?state=${p.state}&code=test`;},async getToken(){return{tokens:{id_token:'test',access_token:'test',scope:DRIVE_SCOPE,expiry_date:Date.now()+3600000}}},async verifyIdToken(){return{getPayload:()=>({sub:'admin',email:config.adminEmail,email_verified:true,nonce:pending.nonce})}}};
+ const file={id:'test_file',name:'VencordInstaller.exe',mimeType:'application/octet-stream',parents:['test_root'],size:'12345',permissions:[{type:'anyone',role:'reader'}],capabilities:{canDownload:true},webContentLink:'https://drive.google.com/uc?id=test_file&export=download'};
+ const second={...file,id:'test_file_2',name:'Second.zip'};
+ const folder={id:'test_folder',name:'Thư mục con',mimeType:FOLDER,parents:['test_root']};second.parents=['test_folder'];
+ const driveRequest=async(tokens,resource,params)=>resource==='files'?{files:params.q.includes('test_folder')?[second]:[file,folder]}:resource==='files/test_file'?file:resource==='files/test_file_2'?second:resource==='files/test_folder'?folder:{id:'test_root',name:'Kho thử nghiệm',mimeType:FOLDER};
+ const server=createApp({config,db,oauthClient:oauth,driveRequest,uploadDir:dir}).listen(0,'127.0.0.1');
+ await new Promise(resolve=>server.once('listening',resolve));config.baseUrl=`http://127.0.0.1:${server.address().port}`;config.redirectUri=config.baseUrl+'/auth/google/callback';
+ let browser;
+ try{
+  browser=await chromium.launch({channel:'msedge',headless:true});
+  const png=await sharp({create:{width:320,height:180,channels:3,background:'#496f50'}}).png().toBuffer();
+  await mkdir('test-artifacts',{recursive:true});
+  for(const[name,viewport]of[['desktop',{width:1440,height:1000}],['mobile',{width:390,height:844}]]){
+   const context=await browser.newContext({viewport});const page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
+   await page.goto(config.baseUrl+'/auth/google');await page.locator('#create-post').click();await page.waitForSelector('#post-form:not([inert])');
+   await page.locator('[name=title]').fill(`Ứng dụng thử nghiệm ${name}`);
+   assert.equal(await page.locator('[name=slug]').inputValue(),`ung-dung-thu-nghiem-${name}`);
+   await page.locator('[name=description]').fill('Mô tả kiểm thử CMS');
+   await page.locator('#introduction').fill('## Giới thiệu\n\n**Chữ đậm**\n\n- Một\n- Hai\n\n<script>window.CMS_XSS=true</script>');
+   await page.locator('[data-editor=introduction] [data-md=bold]').click();
+   assert.ok((await page.locator('#introduction').inputValue()).includes('**Nội dung in đậm**'));
+   const chooserPromise=page.waitForEvent('filechooser');await page.locator('[data-editor=introduction] [data-md=image]').click();
+   await(await chooserPromise).setFiles({name:'inline.png',mimeType:'image/png',buffer:png});
+   await page.waitForFunction(()=>document.querySelector('#introduction').value.includes('](uploads/'));
+   await page.locator('#cover-upload').setInputFiles({name:'photo.png',mimeType:'image/png',buffer:png});
+   await page.waitForFunction(()=>document.querySelector('[name=cover_url]').value.startsWith('uploads/'));
+   await page.locator('#gallery-upload').setInputFiles([{name:'one.png',mimeType:'image/png',buffer:png},{name:'two.png',mimeType:'image/png',buffer:png}]);
+   await page.waitForFunction(()=>document.querySelectorAll('#gallery-preview img').length===2);
+   const before=db.list().length;
+   await page.locator('#choose-drive').click();await page.waitForSelector('[data-pick=test_file]');
+   assert.equal(await page.locator('#drive-picker #drive-target').count(),0);
+   await page.locator('[data-pick=test_file]').check();
+   await page.locator('#picker-cancel').click();assert.equal(await page.locator('#selected-drive-files .selected-file').count(),0);assert.equal(db.list().length,before);
+   await page.locator('#choose-drive').click();await page.waitForSelector('[data-pick=test_file]');
+   await page.locator('#picker-search').fill('vencord');assert.equal(await page.locator('[data-pick=test_file]').count(),1);await page.locator('#picker-search').fill('');
+   await page.locator('[data-pick=test_file]').check();
+   if(name==='mobile'){await page.locator('#picker-files [data-folder=test_folder]').click();await page.waitForSelector('[data-pick=test_file_2]');await page.locator('[data-pick=test_file_2]').check();assert.equal(await page.locator('#picker-breadcrumb [data-folder=test_root]').count(),1);}
+   assert.equal(await page.locator('#drive-picker [data-draft]').count(),0);
+   await page.screenshot({path:`test-artifacts/drive-picker-${name}.png`,fullPage:false});
+   await page.locator('#picker-confirm').click();
+   await page.locator('[data-share=test_file]').check();
+   const selected=name==='mobile'?2:1;assert.equal(await page.locator('.selected-file').count(),selected);assert.equal(db.list().length,before);
+   await page.getByRole('button',{name:'Xem trước',exact:true}).click();await page.waitForSelector('#preview:not([hidden])');assert.ok(await page.locator('#preview strong').count());assert.equal(await page.evaluate(()=>window.CMS_XSS),undefined);
+   await page.waitForFunction(()=>[...document.querySelectorAll('#preview img')].every(img=>img.complete&&img.naturalWidth>0));assert.equal(db.list().length,before);
+   await page.getByRole('button',{name:name==='mobile'?'Xuất bản / cập nhật':'Lưu bản nháp',exact:true}).click();
+   await page.waitForFunction(()=>!!document.querySelector('#saved-info').textContent);
+   const saved=db.list().find(p=>p.slug.endsWith(name));assert.ok(saved);assert.equal(saved.drive_files.length,selected);assert.equal(saved.status,name==='mobile'?'published':'draft');
+   await page.locator('[data-remove=test_file]').click();assert.equal(db.get(saved.id).drive_files.length,selected);
+   await page.getByRole('button',{name:'Xuất bản / cập nhật',exact:true}).click();await page.waitForFunction(()=>document.querySelector('#post-status').dataset.status==='published');
+   assert.equal(db.get(saved.id).drive_files.length,selected-1);
+   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true,`${name}: horizontal overflow`);
+   await page.evaluate(()=>window.scrollTo(0,0));
+   await page.screenshot({path:`test-artifacts/cms-${name}.png`,fullPage:true});
+   assert.deepEqual(errors,[]);
+
+   await page.locator('#cover-upload').setInputFiles({name:'fake.png',mimeType:'image/png',buffer:Buffer.from('MZ executable')});await page.waitForFunction(()=>document.querySelector('#message').dataset.error==='true');
+   const countBeforeCancel=db.list().length;
+   await page.locator('#new-post').click();await page.locator('[name=title]').fill('Bài hủy không lưu');
+   await page.locator('#choose-drive').click();await page.waitForSelector('[data-pick=test_file]');await page.locator('[data-pick=test_file]').check();await page.locator('#picker-confirm').click();
+   page.once('dialog',dialog=>dialog.accept());await page.locator('#new-post').click();
+   assert.equal(db.list().length,countBeforeCancel);assert.equal(await page.locator('.selected-file').count(),0);assert.equal(await page.locator('[name=title]').inputValue(),'');
+   await page.goto(config.baseUrl+'/admin/');await page.waitForSelector('.dashboard-row');
+   assert.equal(await page.locator('#post-form').count(),0);
+   await page.locator('#post-search').fill(saved.title);assert.equal(await page.locator('#post-table .dashboard-row').count(),1);
+   await page.locator('#post-filter-status').selectOption('draft');assert.equal(await page.locator('#post-table .dashboard-row').count(),0);await page.locator('#post-filter-status').selectOption('published');
+   await page.locator(`[data-preview="${saved.id}"]`).click();await page.waitForSelector('#dashboard-preview[open]');await page.locator('#preview-close').click();
+   await page.locator(`[data-delete="${saved.id}"]`).click();assert.equal(await page.locator('.action-dialog .action-post-title').textContent(),saved.title);await page.locator('[data-cancel]').click();assert.ok(db.get(saved.id));
+   await page.locator(`[data-delete="${saved.id}"]`).click();await page.locator('[data-execute]').click();await page.waitForFunction(()=>!document.querySelector('.action-dialog[open]'));assert.equal(db.get(saved.id),null);
+   await page.locator('a[href="#trash"]').click();await page.locator(`[data-restore="${saved.id}"]`).click();await page.locator('[data-execute]').click();await page.waitForFunction(()=>!document.querySelector('.action-dialog[open]'));assert.ok(db.get(saved.id));
+   await page.goto(config.baseUrl+'/admin/');await page.waitForSelector(`[data-delete="${saved.id}"]`);await page.locator(`[data-delete="${saved.id}"]`).click();await page.locator('[data-execute]').click();await page.waitForFunction(()=>!document.querySelector('.action-dialog[open]'));
+   await page.locator('a[href="#trash"]').click();await page.locator(`[data-purge="${saved.id}"]`).click();assert.equal(await page.locator('[data-execute]').isDisabled(),true);await page.locator('.purge-input input').fill(saved.title);await page.locator('[data-execute]').click();await page.waitForFunction(()=>!document.querySelector('.action-dialog[open]'));assert.equal(db.get(saved.id,true),null);
+   await page.locator('a[href="#settings"]').click();await page.waitForFunction(()=>document.querySelector('#settings-info').textContent.includes('npm.cmd run export'));
+   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true);
+   await page.goto(config.baseUrl+'/admin/');await page.waitForSelector('.dashboard-row');
+   await page.screenshot({path:`test-artifacts/dashboard-${name}.png`,fullPage:true});
+   await context.close();
+  }
+ }finally{await browser?.close();await new Promise(resolve=>server.close(resolve));db.close();await rm(dir,{recursive:true,force:true});}
+});

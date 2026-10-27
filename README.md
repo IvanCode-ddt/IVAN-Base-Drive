@@ -1,5 +1,107 @@
 # IVAN Base Drive — Giai đoạn 3B
 
+## Giai đoạn 5A — Đăng cập nhật GitHub Pages từ Admin
+
+Chạy server bằng `npm.cmd start`, đăng nhập tại `http://localhost:3000/admin/`. Khu vực **Xuất bản website** được bổ sung gọn phía trên danh sách bài viết. Không có thao tác Git tự động khi chỉ lưu nháp hoặc xuất bản một bài.
+
+### Cách dùng
+
+1. Hoàn tất nội dung Published và xác nhận quyền chia sẻ của các file Drive cần công khai.
+2. Nhấn **Đăng cập nhật lên website**. Server kiểm tra Git/remote, gọi lại chính hàm export mà `npm.cmd run export` sử dụng và tạo bản nháp tĩnh trong `data/publish-previews/`.
+3. Xem iframe của đúng snapshot JSON vừa xuất, danh sách file thêm/sửa/xóa và danh sách bài Published. Source ngoài docs/ đang sửa hoặc đã stage được giữ nguyên và hiển thị cảnh báo số lượng.
+4. Đánh dấu **Tôi đã xem bản cập nhật…**, rồi nhấn **Xác nhận đăng cập nhật**. Trước bước này không stage, commit hoặc push.
+5. Theo dõi tiến trình kiểm tra → export → xác minh → stage docs/ → commit → push. Thành công sẽ hiện commit ID và liên kết `https://ivancode-ddt.github.io/IVAN-Base-Drive/`.
+
+Thông báo thành công xác nhận commit đã có trên remote, **không khẳng định GitHub Pages đã build xong**. Pages có thể cần vài phút để cập nhật. Nếu không có thay đổi, giao diện báo **Website đã ở phiên bản mới nhất**, không tạo commit rỗng.
+
+### Điều kiện Git trên Windows
+
+- Repository phải ở nhánh `main`, có HEAD hợp lệ và origin HTTPS đúng `https://github.com/IvanCode-ddt/IVAN-Base-Drive.git`.
+- `main` local phải bằng remote main trước khi bắt đầu. CMS dùng `ls-remote` để kiểm tra, không tự fetch/pull/merge/rebase/force push. Local ahead/remote ahead/conflict đều cần bạn xử lý thủ công.
+- Git user.name/user.email cần được cấu hình; CMS không lấy email tác giả từ ADMIN_EMAIL.
+- Git Credential Manager cần đăng nhập sẵn. CMS không nhập, lưu hoặc trả GitHub token. Nếu chưa đăng nhập, mở terminal Windows và chạy `git credential-manager github login`, hoàn thành đăng nhập rồi thử lại. Backend không tự mở hộp đăng nhập tương tác.
+- Source ngoài docs/ chưa commit, kể cả đã stage, không bị đưa vào commit xuất bản. Nếu docs/ đã được stage từ trước, CMS dừng để bảo toàn staging đó; xử lý thủ công trước khi thử lại.
+
+### Phạm vi commit và kiểm tra dữ liệu
+
+Chỉ quản lý các đường dẫn: docs/index.html, .nojekyll, content/posts.json, CSS công khai, danh sách module JS công khai cố định, ảnh raster trong docs/images/ và ảnh UUID WebP trong docs/uploads/. Không dùng `git add .`. Đường dẫn stage gửi riêng qua stdin NUL-delimited, với literal pathspec; commit dùng `--only` để không lấy source đã stage. Git hooks/signing được tắt riêng cho commit tự động này, không sửa cấu hình Git toàn cục. Nếu chính sách GitHub bắt buộc chữ ký hoặc PR, push có thể bị từ chối và cần xử lý theo chính sách đó.
+
+Commit được đối chiếu parent và phạm vi file trước push. Push dùng đúng commit SHA đã tạo tới refs/heads/main (không dùng một HEAD có thể vừa bị tiến trình khác đổi), không có force. Các file Markdown báo cáo không nằm trong allowlist tự stage; file lạ/symlink hoặc thao tác Git chưa hoàn tất khiến CMS dừng.
+
+Validation đối chiếu JSON với projection công khai từ SQLite hiện tại, loại Draft/deleted/file chưa xác nhận/Restricted, kiểm tra schema/đường dẫn và các giá trị secret/email admin hoặc mẫu credential trong tài nguyên văn bản. Nếu nội dung thay đổi sau khi xem trước, phải tạo preview mới. Token Google/GitHub không được đưa vào frontend, JSON public hoặc SQLite. Việc xuất bản không gọi API đổi quyền Drive.
+
+### Khi lỗi và thử lại
+
+| Tình huống | Cách xử lý |
+| --- | --- |
+| Chưa xác thực GitHub | Đăng nhập GCM trong terminal Windows rồi thử lại |
+| Mất mạng | Kiểm tra mạng/proxy/tường lửa; không force push |
+| Remote có commit mới / conflict | Dừng; tự đồng bộ và xử lý Git, sau đó tạo preview mới |
+| Push bị từ chối / nhánh được bảo vệ | Kiểm tra quyền và chính sách nhánh; commit local được giữ |
+| Commit đã tạo nhưng push chưa thành công | Nhấn nút xuất bản để xem lại và thử push cùng commit, không tạo commit trùng; giữ nội dung ổn định trong lần thử lại |
+| Dữ liệu đổi trong lúc có commit chờ push | CMS dừng; xử lý commit/chênh lệch thủ công, không tự reset lịch sử |
+| Staged docs/ hoặc Git index.lock | Kiểm tra trong terminal; không xóa lock khi tiến trình Git còn chạy |
+
+Trạng thái lưu trong `data/publish-state.json`; khóa chạy là `data/publish.lock`. Tất cả nằm trong data/ đã bị Git bỏ qua. Có khóa trong bộ nhớ và file lock để chỉ một tiến trình hoạt động. Nếu server bị tắt đột ngột và để lại publish.lock, chỉ xóa **riêng file lock** sau khi xác nhận không còn tiến trình xuất bản. Không xóa database, trạng thái commit pending hoặc thư mục .git để xử lý lỗi.
+
+Preview có hạn 15 phút, ràng buộc với session Admin. Khi tạo preview mới, preview cũ của cùng session bị thay thế. API yêu cầu ADMIN_EMAIL, CSRF, Origin, kết nối loopback, đúng Host local và không qua proxy; NODE_ENV=production vô hiệu hóa chức năng. Server vẫn bind localhost; không đưa tính năng này lên hosting, tunnel hoặc reverse proxy Internet.
+
+### Kiểm thử không push thật
+
+```powershell
+npm.cmd test
+npm.cmd run test:browser
+```
+
+Test Git tạo repository tạm để kiểm tra commit/docs/index thật; toàn bộ ls-remote/push được mô phỏng, không gọi mạng hoặc git push thật. Test browser dùng publisher giả lập và kiểm tra preview/xác nhận/progress trên Edge desktop/mobile. Không commit hoặc push repository dự án trong kiểm thử. Chức năng chỉ chạy thật khi bạn xác nhận trong Admin.
+
+## Bản sửa dashboard, file tải và Thùng rác
+
+Xem `docs/admin-fix-report.md` để biết nguyên nhân, dữ liệu đã kiểm tra và luồng A/B/C. Dashboard tại `/admin/`; tạo/sửa bài tại `/admin/editor.html`; Thùng rác tại `/admin/#trash`.
+
+Trong form, chọn file và đánh dấu xác nhận công khai cho từng file có quyền Anyone. Lưu bài một lần để ghi nội dung, liên kết và xác nhận trong cùng transaction. Restricted luôn bị ẩn khỏi dữ liệu công khai. File chưa xác nhận vẫn có trong API quản trị và xem trước quản trị, không phải bị mất. Backend phiên bản cũ bị form từ chối để tránh hợp đồng lưu không khớp.
+
+Trước migration thêm `deleted_at`, ứng dụng tự tạo/kiểm tra backup trong `data/backups/`; lỗi backup thì không migration. Có thể tạo bản sao thủ công bằng `node --env-file-if-exists=.env scripts/backup-db.mjs`. Không đưa backup lên GitHub. Sau thay đổi Published/Draft, xóa hoặc khôi phục, chạy lại `npm.cmd run export` để cập nhật bản tĩnh. Slug trong Thùng rác vẫn được giữ để khôi phục; muốn tái dùng slug phải đổi slug hoặc xóa vĩnh viễn bài cũ sau xác nhận.
+
+## Giai đoạn 4A — CMS local
+
+### Luồng file đính kèm đã sửa
+
+Tạo bài mới → chọn ảnh/nội dung → **Chọn từ Google Drive** → chọn nhiều file trong modal → **Xác nhận** → **Lưu bản nháp** hoặc **Xuất bản / cập nhật** một lần. Không cần tạo Draft trước để có ID bài viết.
+
+Modal chỉ duyệt thư mục, breadcrumb, phân trang, tìm tên trong các file/trang đã duyệt và chọn nhiều file. Không có dropdown chọn bài khác, nút tạo Draft hoặc thao tác gắn file ngay. Hủy/đóng/Escape bỏ lựa chọn mới của modal; lựa chọn đã xác nhận chỉ nằm trong bộ nhớ form. Gỡ từng file cũng chỉ là thay đổi tạm. Khi bỏ bài chưa lưu, không tạo bài hoặc quan hệ trong SQLite.
+
+POST/PUT bài viết nhận `drive_file_ids` (tối đa 50, không trùng). Server lấy metadata và kiểm tra ancestry/quyền truy cập bằng Drive service hiện có, sau đó lưu bài cùng toàn bộ danh sách liên kết trong transaction. Lỗi Drive từ chối trước khi ghi; lỗi SQLite rollback cả bài lẫn liên kết. API cũ không gửi trường này vẫn giữ liên kết cũ. Danh sách rỗng có nghĩa gỡ tất cả liên kết sau khi lưu.
+
+Sửa bài sẽ điền sẵn file đã gắn. File giữ lại bảo toàn xác nhận chia sẻ hiện có; file mới mặc định chưa xác nhận, kể cả khi bài được Published. Việc chọn file không thay quyền Google Drive hoặc tự bật công khai. Trang **Kho Google Drive** độc lập tại `/admin/drive-library.html` tiếp tục dùng cho quản lý kho/xác nhận chia sẻ, không còn nhúng trong form. Mọi API và trang này vẫn dùng ADMIN_EMAIL, session, CSRF và OAuth callback cũ.
+
+Upload ảnh vẫn diễn ra riêng khi chọn ảnh; ảnh chưa dùng có thể còn trong kho uploads local như trước. Chỉ bài và các liên kết Drive được ghi cùng lần lưu. Export giữ nguyên: chỉ Published và file đã xác nhận được đưa ra JSON. Không có migration/schema mới trong bản sửa UX này.
+
+Không thay `.env`, OAuth hoặc schema SQLite. Bài viết/file liên kết cũ được giữ nguyên. Markdown lưu trong introduction/instructions hiện có; ảnh chỉ lưu trên filesystem, không lưu blob trong SQLite.
+
+```powershell
+npm.cmd install
+npm.cmd start
+# Trong terminal khác:
+npm.cmd test
+npm.cmd run test:browser
+npm.cmd run export
+```
+
+Khởi động lại backend cũ để có route upload mới. Vào `/admin/`, tạo bài, nhập tiêu đề để tự tạo slug tiếng Việt. Khi sửa bài cũ, slug được giữ nguyên để không đổi URL; có thể chỉnh tay hoặc chọn “Tạo lại slug từ tiêu đề”. Nếu slug trùng, server yêu cầu chọn slug khác, không tự ghi đè bài.
+
+Form gồm thông tin, Markdown, hình ảnh, Drive và liên kết ngoài nâng cao. Thanh công cụ hỗ trợ tiêu đề, in đậm, danh sách, liên kết HTTPS và chèn ảnh từ máy. Markdown là tập con có giới hạn; không hỗ trợ HTML nhúng, iframe, script hoặc Markdown tùy ý mở rộng. Cùng bộ renderer được dùng cho xem trước, website local và GitHub Pages. Mô tả ngắn vẫn là văn bản thuần.
+
+Ảnh bìa, gallery và ảnh chèn Markdown đều upload bằng `POST /api/admin/images` với body nhị phân, session quản trị, Origin và X-CSRF-Token. Chỉ nhận JPEG/PNG/WebP tĩnh, tối đa 5 MB/ảnh và 16 triệu pixel. Server kiểm tra chữ ký, giải mã dữ liệu thật bằng Sharp, từ chối ảnh lỗi/truncated/SVG/file thực thi/ảnh động, rồi chuẩn hóa orientation, resize tối đa 2400×2400 và mã hóa lại WebP, bỏ metadata gốc. Tên và MIME do trình duyệt cung cấp không quyết định định dạng/tên lưu.
+
+Ảnh được lưu tại `uploads/<UUID>.webp`, đường dẫn tương đối lưu trong bài. `/uploads/` bị Git bỏ qua. Admin xem ảnh Draft qua route `/admin/media/` có xác thực; route công khai `/uploads/` chỉ phục vụ ảnh được bài Published tham chiếu ở bìa/gallery/Markdown. Gỡ ảnh trong form chỉ gỡ tham chiếu, không xóa file gốc hoặc ảnh đang được bài khác dùng. Ảnh upload chưa lưu hoặc không còn dùng vẫn ở local; chưa có tính năng dọn kho tự động.
+
+Form dùng modal chọn Drive ở trên. Trang quản lý kho độc lập tiếp tục hỗ trợ các thao tác quản lý tức thời; các thao tác đó không còn nằm trong luồng viết bài.
+
+Export giữ nguyên `npm.cmd run export`: chỉ Published và file Drive đã xác nhận. Chỉ ảnh upload được các bài Published tham chiếu mới được chép vào `docs/uploads/`, giữ đường dẫn tương đối để chạy tại `/IVAN-Base-Drive/`. Ảnh chỉ thuộc Draft không được xuất. Khi export lại, ảnh upload không còn được tham chiếu bị gỡ khỏi bản docs, nhưng bản gốc local được giữ. Cần sao lưu cả SQLite **và uploads/** để phục hồi toàn bộ nội dung. Chỉ đưa bản public docs lên GitHub; không đưa kho uploads local lên Git.
+
+Kiểm thử API dùng SQLite/ảnh tạm; kiểm thử browser chạy Edge headless có sẵn trên Windows và OAuth/Drive giả lập qua dependency test, không gọi tài khoản thật, không có route bỏ qua xác thực trong ứng dụng. `test:browser` cần Microsoft Edge; ảnh chụp desktop/mobile lưu trong `test-artifacts/` và bị Git bỏ qua. Không tự commit, push hoặc deploy.
+
 ## Xuất website tĩnh lên GitHub Pages
 
 Express, OAuth, SQLite và Admin tiếp tục chạy local tại `http://localhost:3000`. Website GitHub Pages chỉ đọc snapshot JSON, không có đăng nhập quản trị hoặc API backend.
