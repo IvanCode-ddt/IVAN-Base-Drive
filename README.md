@@ -1,5 +1,11 @@
 # IVAN Base Drive — Giai đoạn 3B
 
+## Ghim bài viết và Hộp góp ý
+
+Ghim tối đa 5 bài trong Admin, đặt thứ tự ưu tiên bằng số; chỉ Published xuất hiện ở Nội dung nổi bật. Website có nút Gửi góp ý mở Google Form chính thức. Hộp góp ý local có adapter Sheets riêng chỉ đọc, mặc định tắt cho đến khi bạn cấu hình quyền hợp lệ; không mở rộng OAuth scope Admin/Drive.
+
+Xem [FEEDBACK-SETUP.md](FEEDBACK-SETUP.md) để hoàn tất Form/Sheet, thiết lập service account và sử dụng bộ lọc/trạng thái. SQLite migration tự tạo backup được kiểm tra trước khi thay đổi schema. Không có thao tác tự push.
+
 ## Giai đoạn 6 — Google Admin bắt buộc, vận hành local
 
 Mở `IVAN-Admin.cmd` → `/admin` → đăng nhập Google đúng `ADMIN_EMAIL`. `LOCAL_ADMIN_MODE` đã bị loại khỏi đường cấp quyền; đặt true cũng không bỏ được đăng nhập. Server vẫn chỉ bind `127.0.0.1`; session Google hết hạn hoặc logout phải đăng nhập lại. Callback Google giữ xử lý chống lỗi LOCAL_ONLY.

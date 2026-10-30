@@ -20,6 +20,7 @@ function fill(post=null){
  form.reset();editingId=post?.id||null;currentStatus=post?.status||'draft';
  loadedPost=post;$('#delete-post').hidden=!post;
  if(post)for(const key of Object.keys(post)){const field=form.elements.namedItem(key);if(field)field.value=key==='images'?post.images.join('\n'):post[key];}
+ form.elements.is_pinned.checked=!!post?.is_pinned;
  $('#editor-title').textContent=post?'Chỉnh sửa bài viết':'Bài viết mới';$('#saved-info').textContent=post?`ID: ${post.id} · ${post.status} · Cập nhật: ${new Date(post.updated_at).toLocaleString('vi-VN')}`:'';
  $('#preview').hidden=true;dirty=false;driveUI.fill(post);editorUI.fill(post);
  const badge=$('#post-status');badge.textContent=post?(post.status==='published'?'Published · Đã xuất bản':'Draft · Bản nháp'):'Bài mới · Draft';badge.dataset.status=post?.status||'draft';
@@ -29,6 +30,7 @@ form.addEventListener('submit',async event=>{
  event.preventDefault();const intent=event.submitter?.value||'draft';
  if(form.querySelector('input[type=file]:disabled'))return message('Vui lòng chờ ảnh tải lên xong trước khi lưu hoặc xem trước.',true);
  const body=Object.fromEntries(new FormData(form));body.images=body.images.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);body.status=intent==='preview'?currentStatus:intent;
+ body.is_pinned=form.elements.is_pinned.checked;body.pin_order=Number(form.elements.pin_order.value);
  body.drive_file_ids=driveUI.ids();
  body.cms_contract=2;
  body.drive_public_file_ids=driveUI.files().filter(file=>file.sharing_confirmed===1&&file.sharing_access==='anyone').map(file=>file.file_id);
@@ -48,4 +50,4 @@ form.addEventListener('submit',async event=>{
 $('#new-post').addEventListener('click',()=>{if(dirty&&!confirm('Bỏ các thay đổi chưa lưu?'))return;fill();message('Đang tạo bài viết mới.');});
 $('#logout').addEventListener('click',async()=>{if(dirty&&!confirm('Đăng xuất và bỏ thay đổi chưa lưu?'))return;try{await api('/api/admin/logout',{method:'POST',body:'{}'});dirty=false;location.assign('/login');}catch(error){message(error.message,true);}});
 window.addEventListener('beforeunload',event=>{if(dirty){event.preventDefault();event.returnValue='';}});
-try{const session=await api('/api/admin/session');if(session.saveContractVersion!==2)throw new Error('Backend đang chạy phiên bản cũ. Khởi động lại npm.cmd start rồi tải lại CMS trước khi lưu bài.');csrf=session.csrfToken;$('#admin-email').textContent=session.email;const edit=new URLSearchParams(location.search).get('edit');fill(edit?await api(`/api/admin/posts/${encodeURIComponent(edit)}`):null);form.removeAttribute('inert');}catch(error){message(error.message,true);}
+try{const session=await api('/api/admin/session');if(session.saveContractVersion!==2||!session.supportsPinning)throw new Error('Backend đang chạy phiên bản cũ. Khởi động lại npm.cmd start rồi tải lại CMS trước khi lưu bài.');csrf=session.csrfToken;$('#admin-email').textContent=session.email;const edit=new URLSearchParams(location.search).get('edit');fill(edit?await api(`/api/admin/posts/${encodeURIComponent(edit)}`):null);form.removeAttribute('inert');}catch(error){message(error.message,true);}

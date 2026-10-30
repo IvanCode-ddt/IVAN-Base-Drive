@@ -6,7 +6,7 @@ import { OAuth2Client } from 'google-auth-library';
 import { randomBytes, timingSafeEqual, createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import { validatePost, InputError } from './posts.js';
+import { validatePost,validatePin, InputError } from './posts.js';
 import { DRIVE_SCOPE, DriveError } from './drive.js';
 import { registerDriveRoutes, selectedDriveFiles } from './drive-routes.js';
 import { oauthFailure } from './oauth-error.js';
@@ -17,10 +17,11 @@ import {PublishError} from './publish-git.js';
 import {runtimeIdentity} from './local-runtime.js';
 import {validateLocalRuntime,localRequestAllowed} from './local-admin.js';
 import {hasGoogleAdminSession,ADMIN_SESSION_MS} from './google-session.js';
+import {FeedbackError,registerFeedbackRoutes} from './feedback.js';
 const root = fileURLToPath(new URL('../', import.meta.url));
 const random = () => randomBytes(32).toString('hex');
 const equal = (a,b) => typeof a === 'string' && typeof b === 'string' && Buffer.byteLength(a) === Buffer.byteLength(b) && timingSafeEqual(Buffer.from(a),Buffer.from(b));
-export function createApp({ config, db, oauthClient, driveRequest, uploadDir=path.join(root,'uploads'), publisher, sessionStore, now=Date.now }) {
+export function createApp({ config, db, oauthClient, driveRequest, feedbackTransport, uploadDir=path.join(root,'uploads'), publisher, sessionStore, now=Date.now }) {
   validateLocalRuntime(config);
   const app = express();
   const oauth = oauthClient || new OAuth2Client(config.clientId, config.clientSecret, config.redirectUri);
@@ -36,7 +37,7 @@ export function createApp({ config, db, oauthClient, driveRequest, uploadDir=pat
     }
     next();
   });
-  app.use(helmet({ contentSecurityPolicy: { directives: { 'img-src': ["'self'", 'https:'], 'media-src': ["'self'", 'https:'], 'style-src': ["'self'", "'unsafe-inline'"], 'script-src': ["'self'"], 'upgrade-insecure-requests': config.secure ? [] : null } }, strictTransportSecurity: config.secure ? undefined : false }));
+  app.use(helmet({ contentSecurityPolicy: { directives: { 'img-src': ["'self'", 'https:'], 'media-src': ["'self'", 'https:'], 'frame-src': ["'self'", 'https://docs.google.com'], 'style-src': ["'self'", "'unsafe-inline'"], 'script-src': ["'self'"], 'upgrade-insecure-requests': config.secure ? [] : null } }, strictTransportSecurity: config.secure ? undefined : false }));
   app.use(express.json({ limit: '150kb' }));
   app.use(session({ name:'ivan.sid', secret:config.sessionSecret, store:sessionStore, resave:false, saveUninitialized:false, cookie:{ httpOnly:true, secure:config.secure, sameSite:'lax', maxAge:ADMIN_SESSION_MS } }));
   const admin = (req,res,next) => {
@@ -92,13 +93,19 @@ export function createApp({ config, db, oauthClient, driveRequest, uploadDir=pat
     }
   });
   app.get('/api/posts', (req,res) => { res.set('Cache-Control','no-store'); res.json(db.list(true).map(post => db.publicPost(post))); });
+  app.get('/api/site-settings',(req,res)=>res.set('Cache-Control','no-store').json({feedbackFormUrl:config.feedbackFormUrl||''}));
   app.get('/api/posts/:slug', (req,res) => { res.set('Cache-Control','no-store'); const post=db.publicPost(db.published(req.params.slug)); post ? res.json(post) : res.status(404).json({error:'Không tìm thấy bài viết.'}); });
   app.use('/api/admin', admin);
+  registerFeedbackRoutes(app,{db,config,csrf,transport:feedbackTransport});
   registerPublishRoutes(app,{config,csrf,publisher:publisher||createPublisher({root,databasePath:config.databasePath,adminEmail:config.adminEmail,secrets:[config.clientSecret,config.sessionSecret]})});
   registerMedia(app,{admin,csrf,db,uploadDir});
   registerDriveRoutes(app, {db,config,csrf,driveRequest,revokeToken:token => oauth.revokeToken(token)});
-  app.get('/api/admin/session', (req,res) => res.json({ email:req.session.admin.email, authMode:'google',driveConnected:!!req.session.drive?.access_token&&req.session.drive.expiry_date>Date.now()+10000, csrfToken:req.session.csrf, saveContractVersion:2 }));
+  app.get('/api/admin/session', (req,res) => res.json({ email:req.session.admin.email, authMode:'google',supportsPinning:true,driveConnected:!!req.session.drive?.access_token&&req.session.drive.expiry_date>Date.now()+10000, csrfToken:req.session.csrf, saveContractVersion:2 }));
   app.get('/api/admin/posts', (req,res) => res.json(db.list()));
+  app.patch('/api/admin/posts/:id/pin',csrf,(req,res)=>{
+    const pin=validatePin(req.body),post=db.setPin(req.params.id,pin.is_pinned,pin.pin_order);
+    return post?res.json(post):res.status(404).json({error:'Không tìm thấy bài viết.'});
+  });
   app.get('/api/admin/trash',(req,res)=>res.json(db.trash()));
   app.get('/api/admin/settings',(req,res)=>res.json({email:config.adminEmail,driveRootId:config.driveRootId,exportCommand:'npm.cmd run export',postCount:db.list().length,trashCount:db.trash().length}));
   app.delete('/api/admin/posts/:id',csrf,(req,res)=>{
@@ -138,6 +145,7 @@ export function createApp({ config, db, oauthClient, driveRequest, uploadDir=pat
   app.use((req,res) => res.status(404).json({error:'Không tìm thấy đường dẫn.'}));
   app.use((error,req,res,next) => {
     if(error instanceof PublishError)return res.status(error.status).json({error:error.message,code:error.code,hint:error.hint});
+    if(error instanceof FeedbackError)return res.status(error.status).json({error:error.message,code:error.code});
     if(error instanceof DriveError) return res.status(error.status).json({error:error.message,code:error.code});
     if(error instanceof InputError) return res.status(400).json({error:error.message});
     if(error.code?.startsWith('ERR_SQLITE') && error.message.includes('UNIQUE')) return res.status(409).json({error:'Slug đã tồn tại. Hãy chọn slug khác.'});

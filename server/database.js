@@ -4,12 +4,13 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { publicPost } from './public-post.js';
 import {verifiedBackup} from './backup.js';
+import {InputError} from './posts.js';
 export function openDatabase(filename) {
   if (filename !== ':memory:') mkdirSync(path.dirname(filename), { recursive: true });
   const db = new DatabaseSync(filename);
   const initialVersion=db.prepare('PRAGMA user_version').get().user_version;
-  if(initialVersion>4){db.close();throw new Error('Database mới hơn ứng dụng.');}
-  if(filename!==':memory:'&&initialVersion<4&&db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='posts'").get()){
+  if(initialVersion>6){db.close();throw new Error('Database mới hơn ứng dụng.');}
+  if(filename!==':memory:'&&initialVersion<6&&db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='posts'").get()){
     try{const saved=verifiedBackup(db,filename);console.log(`Verified pre-migration backup: ${saved.path} (${saved.postCount} posts; integrity ok)`);}catch(error){db.close();throw error;}
   }
   db.exec(`PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;
@@ -23,7 +24,7 @@ export function openDatabase(filename) {
       created_at TEXT NOT NULL, updated_at TEXT NOT NULL
     ); CREATE INDEX IF NOT EXISTS posts_status_updated ON posts(status, updated_at DESC);`);
   const version = db.prepare('PRAGMA user_version').get().user_version;
-  if (version > 4) { db.close(); throw new Error('Database mới hơn phiên bản ứng dụng. Không tự động hạ cấp.'); }
+  if (version > 6) { db.close(); throw new Error('Database mới hơn phiên bản ứng dụng. Không tự động hạ cấp.'); }
   if (version < 2) {
     db.exec('BEGIN IMMEDIATE');
     try {
@@ -59,14 +60,59 @@ export function openDatabase(filename) {
       db.exec('CREATE INDEX IF NOT EXISTS posts_deleted ON posts(deleted_at); PRAGMA user_version=4; COMMIT;');
     }catch(error){db.exec('ROLLBACK');db.close();throw error;}
   }
+  if(version<5){
+    db.exec('BEGIN IMMEDIATE');
+    try{
+      const names=db.prepare('PRAGMA table_info(posts)').all().map(column=>column.name);
+      if(!names.includes('is_pinned'))db.exec('ALTER TABLE posts ADD COLUMN is_pinned INTEGER NOT NULL DEFAULT 0 CHECK(is_pinned IN (0,1))');
+      if(!names.includes('pin_order'))db.exec('ALTER TABLE posts ADD COLUMN pin_order INTEGER NOT NULL DEFAULT 0 CHECK(pin_order BETWEEN 0 AND 9999)');
+      db.exec('CREATE INDEX IF NOT EXISTS posts_pinned ON posts(is_pinned,pin_order); PRAGMA user_version=5; COMMIT;');
+    }catch(error){db.exec('ROLLBACK');db.close();throw error;}
+  }
+  if(version<6){
+    db.exec('BEGIN IMMEDIATE');
+    try{
+      db.exec(`CREATE TABLE IF NOT EXISTS feedback (
+        id TEXT PRIMARY KEY,source_key TEXT NOT NULL,source_row INTEGER NOT NULL,received_at TEXT NOT NULL,
+        type TEXT NOT NULL,title TEXT NOT NULL,detail TEXT NOT NULL,reference_url TEXT NOT NULL,contact_email TEXT NOT NULL,
+        processing_status TEXT NOT NULL DEFAULT 'unread' CHECK(processing_status IN ('unread','read','processing','done')),
+        first_synced_at TEXT NOT NULL,last_synced_at TEXT NOT NULL,status_updated_at TEXT);
+        CREATE INDEX IF NOT EXISTS feedback_source ON feedback(source_key,received_at);
+        CREATE TABLE IF NOT EXISTS feedback_sync_state(source_key TEXT PRIMARY KEY,last_synced_at TEXT NOT NULL,row_count INTEGER NOT NULL);
+        PRAGMA user_version=6; COMMIT;`);
+    }catch(error){db.exec('ROLLBACK');db.close();throw error;}
+  }
   const linkedFiles = id => db.prepare('SELECT * FROM post_drive_files WHERE post_id=? ORDER BY linked_at,file_id').all(id);
   const decode = row => row ? { ...row, images: JSON.parse(row.images), drive_files: linkedFiles(row.id) } : null;
-  const columns = ['slug','title','category','description','introduction','instructions','cover_url','images','attachment_url','drive_file_id','media_url','status'];
+  const columns = ['slug','title','category','description','introduction','instructions','cover_url','images','attachment_url','drive_file_id','media_url','status','is_pinned','pin_order'];
   const values = post => columns.map(key => key === 'images' ? JSON.stringify(post.images) : post[key]);
+  const pinFields=(post,old)=>{
+    const is_pinned=post.is_pinned??old?.is_pinned??0,pin_order=post.pin_order??old?.pin_order??0;
+    if(is_pinned===1&&db.prepare('SELECT COUNT(*) AS n FROM posts WHERE is_pinned=1 AND deleted_at IS NULL AND id<>?').get(old?.id||'').n>=5)throw new InputError('Tối đa 5 bài ghim. Hãy bỏ ghim một bài trước.');
+    return{...post,is_pinned,pin_order};
+  };
   return {
     close: () => db.close(),
     linkedFiles,
     publicPost,
+    feedbackState:key=>db.prepare('SELECT last_synced_at,row_count FROM feedback_sync_state WHERE source_key=?').get(key)||null,
+    syncFeedback(key,rows){
+      db.exec('BEGIN IMMEDIATE');try{
+        const now=new Date().toISOString(),statement=db.prepare(`INSERT INTO feedback(id,source_key,source_row,received_at,type,title,detail,reference_url,contact_email,first_synced_at,last_synced_at)
+          VALUES(?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET source_row=excluded.source_row,last_synced_at=excluded.last_synced_at`);
+        for(const row of rows)statement.run(row.id,key,row.source_row,row.received_at,row.type,row.title,row.detail,row.reference_url,row.contact_email,now,now);
+        db.prepare('INSERT INTO feedback_sync_state VALUES(?,?,?) ON CONFLICT(source_key) DO UPDATE SET last_synced_at=excluded.last_synced_at,row_count=excluded.row_count').run(key,now,rows.length);
+        db.exec('COMMIT');return{last_synced_at:now,row_count:rows.length};
+      }catch(error){db.exec('ROLLBACK');throw error;}
+    },
+    listFeedback({search='',status='',type='',offset=0}={}){
+      const clauses=[],params=[];
+      if(search){clauses.push("(title LIKE ? ESCAPE '\\' OR detail LIKE ? ESCAPE '\\' OR contact_email LIKE ? ESCAPE '\\')");const value='%'+search.replace(/[\\%_]/g,'\\$&')+'%';params.push(value,value,value);}
+      if(status){clauses.push('processing_status=?');params.push(status);}if(type){clauses.push('type=?');params.push(type);}
+      const where=clauses.length?'WHERE '+clauses.join(' AND '):'';
+      return{items:db.prepare(`SELECT * FROM feedback ${where} ORDER BY first_synced_at DESC,id LIMIT 100 OFFSET ?`).all(...params,offset),total:db.prepare(`SELECT COUNT(*) AS n FROM feedback ${where}`).get(...params).n};
+    },
+    feedbackStatus(id,status){return db.prepare('UPDATE feedback SET processing_status=?,status_updated_at=? WHERE id=? RETURNING *').get(status,new Date().toISOString(),id)||null;},
     saveWithFiles(post, id, files, adminEmail) {
       db.exec('BEGIN IMMEDIATE');
       try {
@@ -104,14 +150,22 @@ export function openDatabase(filename) {
     get: (id,includeDeleted=false) => decode(db.prepare(`SELECT * FROM posts WHERE id=? ${includeDeleted?'':'AND deleted_at IS NULL'}`).get(id)),
     published: slug => decode(db.prepare("SELECT * FROM posts WHERE slug=? AND status='published' AND deleted_at IS NULL").get(slug)),
     softDelete(id){const now=new Date().toISOString();return db.prepare('UPDATE posts SET deleted_at=?,updated_at=? WHERE id=? AND deleted_at IS NULL').run(now,now,id).changes>0;},
-    restore(id){return db.prepare('UPDATE posts SET deleted_at=NULL,updated_at=? WHERE id=? AND deleted_at IS NOT NULL').run(new Date().toISOString(),id).changes>0;},
+    restore(id){const old=this.get(id,true);if(old?.deleted_at)pinFields(old,old);return db.prepare('UPDATE posts SET deleted_at=NULL,updated_at=? WHERE id=? AND deleted_at IS NOT NULL').run(new Date().toISOString(),id).changes>0;},
+    setPin(id,is_pinned,pin_order){
+      db.exec('BEGIN IMMEDIATE');try{const old=this.get(id);if(!old){db.exec('ROLLBACK');return null;}const next=pinFields({...old,is_pinned,pin_order},old);
+        db.prepare('UPDATE posts SET is_pinned=?,pin_order=?,updated_at=? WHERE id=?').run(next.is_pinned,next.pin_order,new Date().toISOString(),id);
+        const result=this.get(id);db.exec('COMMIT');return result;
+      }catch(error){db.exec('ROLLBACK');throw error;}
+    },
     purge(id){return db.prepare('DELETE FROM posts WHERE id=? AND deleted_at IS NOT NULL').run(id).changes>0;},
     create(post) {
+      post=pinFields(post);
       const id = randomUUID(), now = new Date().toISOString();
-      db.prepare(`INSERT INTO posts (id,${columns.join(',')},created_at,updated_at) VALUES (${Array(15).fill('?').join(',')})`).run(id,...values(post),now,now);
+      db.prepare(`INSERT INTO posts (id,${columns.join(',')},created_at,updated_at) VALUES (${Array(columns.length+3).fill('?').join(',')})`).run(id,...values(post),now,now);
       return this.get(id);
     },
     update(id, post) {
+      const old=this.get(id);if(!old)return null;post=pinFields(post,old);
       const result = db.prepare(`UPDATE posts SET ${columns.map(key => `${key}=?`).join(',')},updated_at=? WHERE id=? AND deleted_at IS NULL`).run(...values(post),new Date().toISOString(),id);
       return result.changes ? this.get(id) : null;
     }

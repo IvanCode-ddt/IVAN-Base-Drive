@@ -33,7 +33,7 @@ export async function validateBundle({directory,databasePath,secrets=[],adminEma
  const files=await bundleManifest(directory);
  for(const file of files.filter(f=>/\.(?:json|js|html|css)$/.test(f.path))){
   const text=await readFile(path.join(directory,file.path.slice(5)),'utf8');
-  if(secrets.some(secret=>typeof secret==='string'&&secret.length>=12&&text.includes(secret))||/(?:gh[pousr]_[a-zA-Z0-9]{25,}|github_pat_[a-zA-Z0-9_]{30,}|GOCSPX-[a-zA-Z0-9_-]{20,}|ya29\.[a-zA-Z0-9_-]{20,}|1\/\/[a-zA-Z0-9_-]{30,})/.test(text))throw new PublishError('PRIVATE_DATA','Phát hiện chuỗi credential trong bản xuất.','Kiểm tra source công khai; credential không được đưa vào docs/.');
+  if(secrets.some(secret=>typeof secret==='string'&&secret.length>=12&&text.includes(secret))||/(?:gh[pousr]_[a-zA-Z0-9]{25,}|github_pat_[a-zA-Z0-9_]{30,}|GOCSPX-[a-zA-Z0-9_-]{20,}|ya29\.[a-zA-Z0-9_-]{20,}|1\/\/[a-zA-Z0-9_-]{30,}|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----)/.test(text))throw new PublishError('PRIVATE_DATA','Phát hiện chuỗi credential trong bản xuất.','Kiểm tra source công khai; credential không được đưa vào docs/.');
  }
  return{posts:payload.posts,files};
 }

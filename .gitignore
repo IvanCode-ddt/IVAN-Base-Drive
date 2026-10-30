@@ -16,3 +16,5 @@ test-artifacts/
 credentials*.json
 client_secret*.json
 token*.json
+*service-account*.json
+*service_account*.json

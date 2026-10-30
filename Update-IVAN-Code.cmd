@@ -68,7 +68,7 @@ function Allowed([string]$name) {
   # Exclude private/cache directories at ANY depth, even if tracked accidentally.
   $checked = $name -replace '^\.github/', 'github/'
   if ($checked -match '(^|/)(\.[^/]+|node_modules|data|uploads|backups?|private|secrets?|credentials?|logs?|coverage|test-artifacts|publish-previews|temp|tmp)(/|$)' -and $name -ne '.gitignore') { return $false }
-  if ($name -match '(?i)\.(sqlite\d*|db)([-.]|$)|\.(bak|backup|log|pem|key|p12|pfx|lnk)$|(^|/)[^/]*(credentials?|client[_-]?secrets?|tokens?|secrets?|backups?)[^/]*\.(json|txt|ya?ml)$|(^|/)(id_rsa|id_ed25519)(\.|$)|[\x00-\x1f]') { return $false }
+  if ($name -match '(?i)\.(sqlite\d*|db)([-.]|$)|\.(bak|backup|log|pem|key|p12|pfx|lnk)$|(^|/)[^/]*(credentials?|client[_-]?secrets?|service[_-]?accounts?|tokens?|secrets?|backups?)[^/]*\.(json|txt|ya?ml)$|(^|/)(id_rsa|id_ed25519)(\.|$)|[\x00-\x1f]') { return $false }
   return $name -eq '.gitignore' -or $name -match '(^|/)(LICENSE|NOTICE)$|\.(js|mjs|cjs|ts|tsx|jsx|html|css|scss|sass|less|json|md|txt|cmd|bat|ps1|yml|yaml|png|jpe?g|webp|gif|avif|ico|mp3|wav|ogg|m4a|flac)$'
 }
 function Assert-Repository([string]$head) {
@@ -92,7 +92,7 @@ import {validateBundle,allowedPublishPath} from './server/publish-bundle.js';
 const chunks=[];for await(const chunk of process.stdin)chunks.push(chunk);
 const names=JSON.parse(Buffer.concat(chunks).toString('utf8'));
 const secrets=Object.entries(process.env).filter(([key,value])=>/(SECRET|TOKEN|PASSWORD|ADMIN_EMAIL)/i.test(key)&&value.length>=8).map(([,value])=>value);
-const pattern=/(?:gh[pousr]_[a-zA-Z0-9]{25,}|github_pat_[a-zA-Z0-9_]{30,}|GOCSPX-[a-zA-Z0-9_-]{20,}|ya29\.[a-zA-Z0-9_-]{20,}|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----)/;
+const pattern=/(?:gh[pousr]_[a-zA-Z0-9]{25,}|github_pat_[a-zA-Z0-9_]{30,}|GOCSPX-[a-zA-Z0-9_-]{20,}|ya29\.[a-zA-Z0-9_-]{20,}|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----(?:\s|\\[rn])+[A-Za-z0-9+/=]{32,})/;
 async function safeFile(name){
  let component=process.cwd();for(const part of name.split('/')){component=path.join(component,part);try{if((await fs.lstat(component)).isSymbolicLink())throw Error('SYMLINK');}catch(e){if(e.code==='ENOENT')return null;throw e;}}
  const stat=await fs.lstat(name);if(!stat.isFile()||stat.size>50*1024*1024)throw Error('UNSAFE_FILE');

@@ -5,6 +5,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { randomUUID } from 'node:crypto';
 import { publicPost } from '../server/public-post.js';
 import { localImages, isUploadPath } from '../js/media.js';
+import {publicFormURL,DEFAULT_FEEDBACK_FORM_URL} from '../server/public-settings.js';
 
 const projectRoot = fileURLToPath(new URL('../', import.meta.url));
 export function readPublished(filename) {
@@ -32,7 +33,7 @@ export async function exportStatic({ databasePath=path.resolve(process.env.DATAB
   await mkdir(contentDir,{recursive:true});
   await mkdir(path.join(outputDir,'css'),{recursive:true});
   await mkdir(path.join(outputDir,'js'),{recursive:true});
-  const html=(await readFile(path.join(sourceDir,'index.html'),'utf8')).replace(/<a\b[^>]*\bdata-local-admin\b[^>]*>.*?<\/a>/g,'');
+  const html=(await readFile(path.join(sourceDir,'index.html'),'utf8')).replace(/<a\b[^>]*\bdata-local-admin\b[^>]*>.*?<\/a>/g,'').replace('data-feedback-form-url=""',`data-feedback-form-url="${publicFormURL(process.env.FEEDBACK_FORM_URL??DEFAULT_FEEDBACK_FORM_URL)}"`);
   await writeFile(path.join(outputDir,'index.html'),html,'utf8');
   await copyFile(path.join(sourceDir,'css/style.css'),path.join(outputDir,'css/style.css'));
   for(const file of ['main.js','data.js','content.js','post-source.js','media.js','markdown.js']) await copyFile(path.join(sourceDir,'js',file),path.join(outputDir,'js',file));

@@ -6,20 +6,22 @@
 <meta name="theme-color" content="#101216">
 <meta name="description" content="IVAN Base Drive — Thư viện phim, game, nhạc, ứng dụng và nội dung số.">
 <title>IVAN Base Drive — Thư viện nội dung số</title>
-<link rel="stylesheet" href="css/style.css?v=9">
+<link rel="stylesheet" href="css/style.css?v=12">
 </head>
 <body>
 <a class="skip-link" href="#main">Đến nội dung chính</a>
-<header class="header"><div class="shell header-inner"><a href="#" class="brand" aria-label="IVAN Base Drive — Trang chủ"><span class="brand-mark">i<span>↗</span></span><span>IVAN<span class="brand-sub">BASE DRIVE</span></span></a><nav aria-label="Điều hướng chính"><a href="#" class="nav-link">Thư viện</a><a data-local-admin href="/admin" class="nav-link">Quản trị</a></nav></div></header>
+<header class="header"><div class="shell header-inner"><a href="#" class="brand" aria-label="IVAN Base Drive — Trang chủ"><span class="brand-mark">i<span>↗</span></span><span>IVAN<span class="brand-sub">BASE DRIVE</span></span></a><nav aria-label="Điều hướng chính"><a href="#" class="nav-link">Thư viện</a><button id="feedback-open" type="button" class="secondary-button" data-feedback-form-url="">Gửi góp ý</button><a data-local-admin href="/admin" class="nav-link">Quản trị</a></nav></div></header>
 <main id="main" class="shell" tabindex="-1">
 <section id="library-view">
 <div class="hero"><div class="hero-copy"><p class="eyebrow"><span class="status-dot"></span> KHÔNG GIAN NỘI DUNG SỐ CỦA BẠN</p><h1>Mọi điều bạn thích.<br><span>Một nơi để khám phá.</span></h1><p class="hero-description">Từ những thước phim đến thế giới game, giai điệu và công cụ mỗi ngày. Khám phá thư viện IVAN theo cách của bạn.</p><a class="primary-button" href="#collection">Khám phá thư viện <span aria-hidden="true">↗</span></a></div><div class="hero-art" aria-hidden="true"><span class="orbit orbit-one"></span><span class="orbit orbit-two"></span><div class="art-tile tile-film">▶<small>CINEMA</small></div><div class="art-tile tile-music">♫<small>ON REPEAT</small></div><div class="art-tile tile-game">✦<small>PLAY MORE</small></div><span class="art-caption">YOUR NEXT FAVORITE IS HERE.</span></div></div>
 <p id="library-status" role="alert" hidden></p>
+<section id="featured-section" class="collection" aria-labelledby="featured-title" hidden><div class="section-heading"><div><p class="eyebrow">ĐIỂM HẸN TRONG THƯ VIỆN</p><h2 id="featured-title">Nội dung nổi bật</h2></div></div><div id="featured-grid" class="post-grid"></div></section>
 <section id="collection" class="collection" aria-labelledby="collection-title"><div class="section-heading"><div><p class="eyebrow">ĐƯỢC CHỌN CHO BẠN</p><h2 id="collection-title">Khám phá thư viện</h2></div><span id="result-count" class="result-count" role="status"></span></div><div class="toolbar"><div id="category-filters" class="filters" role="group" aria-label="Lọc danh mục"></div><label class="search"><span aria-hidden="true">⌕</span><span class="sr-only">Tìm bài đăng</span><input id="search-input" type="search" placeholder="Tìm nội dung bạn thích…" autocomplete="off"></label></div><div id="post-grid" class="post-grid"></div><div id="empty-state" class="empty-state" hidden><span aria-hidden="true">⌕</span><h3>Chưa tìm thấy nội dung</h3><p>Thử từ khóa khác hoặc xem lại tất cả danh mục.</p><button id="reset-filters" class="secondary-button">Xóa bộ lọc</button></div></section>
 </section>
 <section id="detail-view" hidden aria-label="Chi tiết bài đăng"></section>
+<dialog id="feedback-dialog" aria-labelledby="feedback-title"><div class="feedback-heading"><h2 id="feedback-title">Gửi góp ý</h2><button id="feedback-close" class="secondary-button" type="button">Đóng</button></div><p>Góp ý · Yêu cầu thêm game, phần mềm, file · Báo lỗi. Tiêu đề và nội dung là bắt buộc; liên kết tham khảo và email liên hệ là tùy chọn.</p><p id="feedback-notice" role="status"></p><a id="feedback-link" class="primary-button" target="_blank" rel="noopener noreferrer" hidden>Mở Google Form ↗</a><div id="feedback-frame"></div></dialog>
 </main>
 <footer class="shell footer"><a class="footer-brand" href="#">IVAN <span>BASE DRIVE</span></a><p>Không gian nhỏ. Khả năng khám phá lớn.</p><span>Thư viện nội dung số</span></footer>
-<script type="module" src="js/main.js?v=9"></script>
+<script type="module" src="js/main.js?v=12"></script>
 </body>
 </html>

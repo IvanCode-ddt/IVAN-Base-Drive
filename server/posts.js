@@ -1,6 +1,10 @@
 export const categories = ['film', 'game', 'music', 'app', 'other'];
 import { isUploadPath } from '../js/media.js';
 export class InputError extends Error {}
+export function validatePin(body){
+  if(!body||![true,false,0,1].includes(body.is_pinned)||!Number.isInteger(body.pin_order)||body.pin_order<0||body.pin_order>9999)throw new InputError('Thông tin ghim không hợp lệ; thứ tự từ 0 đến 9999.');
+  return{is_pinned:Number(body.is_pinned),pin_order:body.pin_order};
+}
 function text(body, key, max, required = false) {
   const value = body[key] ?? '';
   if (typeof value !== 'string' || value.length > max || (required && !value.trim())) throw new InputError(`${key}: không hợp lệ hoặc vượt ${max} ký tự.`);
@@ -32,5 +36,6 @@ export function validatePost(body) {
     if (typeof value !== 'string' || !value || value.length > 2048) throw new InputError('URL ảnh không hợp lệ.');
     return isUploadPath(value)?value:httpsUrl(value, 'images');
   });
-  return { title, slug, category: body.category, description, introduction, instructions, cover_url, images, attachment_url, drive_file_id, media_url, status: body.status };
+  const pin=Object.hasOwn(body,'is_pinned')||Object.hasOwn(body,'pin_order')?validatePin(body):{};
+  return { title, slug, category: body.category, description, introduction, instructions, cover_url, images, attachment_url, drive_file_id, media_url, status: body.status,...pin };
 }

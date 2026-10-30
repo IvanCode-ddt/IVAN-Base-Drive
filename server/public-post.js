@@ -16,6 +16,7 @@ export function publicPost(post) {
     cover_url:isUploadPath(post.cover_url)?post.cover_url:publicURL(post.cover_url), images:(post.images || []).map(value=>isUploadPath(value)?value:publicURL(value)).filter(Boolean),
     attachment_url:publicURL(post.attachment_url), media_url:publicURL(post.media_url),
     status:'published', created_at:post.created_at, updated_at:post.updated_at,
+    is_pinned:post.is_pinned===1||post.is_pinned===true,pin_order:Number.isInteger(post.pin_order)?post.pin_order:0,
     drive_files:(post.drive_files || []).filter(file => file.sharing_confirmed === 1 && file.sharing_access!=='restricted').map(file => ({
       file_id:file.file_id, name:file.name, mime_type:file.mime_type, size:file.size,
       modified_time:file.modified_time, web_url:publicURL(file.web_url),

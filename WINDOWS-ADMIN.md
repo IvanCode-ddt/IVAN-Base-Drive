@@ -2,6 +2,8 @@
 
 ## Chuẩn bị một lần
 
+Tính năng ghim/góp ý: [FEEDBACK-SETUP.md](FEEDBACK-SETUP.md). Sau nâng cấp, tắt server cũ bằng Ctrl+C rồi mở lại `IVAN-Admin.cmd`; migration giữ dữ liệu và tạo backup đã kiểm tra. Đăng nhập Google vẫn bắt buộc. Sheets chưa có tên tab/key/quyền thì Hộp góp ý báo chưa kết nối.
+
 - Cài Node.js 24.15 trở lên (kèm npm), Git for Windows và Git Credential Manager.
 - Trong thư mục dự án, chạy `npm.cmd ci` nếu chưa cài dependencies. Launcher kiểm tra và báo lỗi; không tự tải/cài phần mềm.
 - Giữ cấu hình `.env` hiện có. Cổng vận hành là 3000; OAuth vẫn dùng origin/callback localhost đã cấu hình.
