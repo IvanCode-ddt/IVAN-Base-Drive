@@ -23,7 +23,7 @@ test('Highlight carousel preserves four image ratios, controls motion accessibly
   const post=db.create(validatePost({title:`Highlight ${index+1}`,slug:`highlight-${index+1}`,category:'game',description:'Slide description',cover_url:cover,images:[],status:'published',is_pinned:index===1,pin_order:0}));
   posts.push(post);slides.push({post_id:post.id,enabled:true});
  }
- db.create(validatePost({title:'Not in Highlight',slug:'not-in-highlight',category:'app',description:'Published',images:[],status:'published'}));
+ const sekiro=db.create(validatePost({title:'Sekiro™: Shadows Die Twice - GOTY Edition (Việt hóa sẵn)',slug:'sekiro',category:'game',description:'Published',images:[],status:'published'}));
  const draft=db.create(validatePost({title:'Draft secret',slug:'draft-secret',category:'game',description:'Must stay private',images:[],status:'draft'}));
  db.saveHighlightConfig({enabled:true,interval_seconds:3,slides});
  const config={baseUrl:'http://localhost:3000',redirectUri:'http://localhost:3000/auth/google/callback',adminEmail:'admin@example.test',clientId:'test',clientSecret:'test',sessionSecret:'x'.repeat(48),databasePath:filename};
@@ -82,9 +82,9 @@ test('Highlight carousel preserves four image ratios, controls motion accessibly
   await adminPage.locator('#highlight-slides [data-slide-enabled]').first().uncheck();
   await adminPage.locator('#highlight-save').click();await adminPage.locator('.admin-toast-region .admin-toast').getByText('Đã lưu cấu hình Highlight.').waitFor();
   assert.equal(db.highlightConfig().interval_seconds,7);assert.equal(db.highlightConfig().slides[0].post_id,posts[1].id);assert.equal(db.highlightConfig().slides[0].enabled,false);
-  await adminPage.locator('#highlight-add-post').selectOption({label:'Not in Highlight'});await adminPage.locator('#highlight-add').click();await adminPage.locator('#highlight-slides .highlight-slide-row').last().getByText('Not in Highlight').waitFor();
+  await adminPage.locator('#highlight-add-post').selectOption(sekiro.id);await adminPage.locator('#highlight-add').click();await adminPage.locator('#highlight-slides .highlight-slide-row').last().getByText('Sekiro™: Shadows Die Twice - GOTY Edition (Việt hóa sẵn)').waitFor();
   await adminPage.locator('#highlight-save').click();await adminPage.locator('.admin-toast-region .admin-toast').getByText('Đã lưu cấu hình Highlight.').waitFor();
-  assert.equal(db.highlightConfig().slides.length,5);
+  assert.equal(db.highlightConfig().slides.length,5);assert.ok(db.highlightConfig().slides.some(slide=>slide.post_id===sekiro.id));
   await adminPage.goto(config.baseUrl+'/admin/');await adminPage.locator('#post-table .dashboard-row').first().waitFor();
   const pinned=adminPage.locator('#post-table [data-pin]').first();await pinned.click();await adminPage.locator('.admin-toast').getByText(/Đã ghim/).waitFor();
   const deleteButton=adminPage.locator('#post-table [data-delete]').first();await deleteButton.click();

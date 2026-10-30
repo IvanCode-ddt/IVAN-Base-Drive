@@ -37,7 +37,7 @@ function renderMetadata(){
   label.append(input);container.append(label);
  }
 }
-form.elements.category.addEventListener('change',()=>{captureMetadata();renderMetadata();});
+form.elements.category.addEventListener('change',()=>{captureMetadata();renderMetadata();$('#game-requirements').hidden=form.elements.category.value!=='game';});
 const message=(text,error=false)=>{$('#message').textContent=text;$('#message').dataset.error=String(error);};
 const editorUI=initEditor({form,getCSRF:()=>csrf,onError:text=>{message(text,true);notifications.error(text);},onDirty:()=>{dirty=true;}});
 driveUI=initDrivePicker({api,onDirty:()=>{dirty=true;}});
@@ -52,6 +52,7 @@ function fill(post=null){
  form.reset();editingId=post?.id||null;currentStatus=post?.status||'draft';
  loadedPost=post;$('#delete-post').hidden=!post;
  if(post)for(const key of Object.keys(post)){const field=form.elements.namedItem(key);if(field)field.value=key==='images'?post.images.join('\n'):post[key];}
+ $('#game-requirements').hidden=form.elements.category.value!=='game';
  form.elements.is_pinned.checked=!!post?.is_pinned;
  metadataDraft={...post?.metadata};renderMetadata();
  mediaDraft=(post?.media_sources||[]).map(source=>({...source}));renderMediaSources();
@@ -92,4 +93,4 @@ form.addEventListener('submit',async event=>{
 $('#new-post').addEventListener('click',()=>{if(dirty&&!confirm('Bỏ các thay đổi chưa lưu?'))return;fill();message('Đang tạo bài viết mới.');});
 $('#logout').addEventListener('click',async()=>{if(dirty&&!confirm('Đăng xuất và bỏ thay đổi chưa lưu?'))return;try{await api('/api/admin/logout',{method:'POST',body:'{}'});dirty=false;location.assign('/login');}catch(error){message(error.message,true);}});
 window.addEventListener('beforeunload',event=>{if(dirty){event.preventDefault();event.returnValue='';}});
-try{const session=await api('/api/admin/session');if(session.saveContractVersion!==2||session.contentSchemaVersion!==10)throw new Error('Backend đang chạy phiên bản cũ. Khởi động lại npm.cmd start rồi tải lại CMS trước khi lưu bài.');csrf=session.csrfToken;$('#admin-email').textContent=session.email;const edit=new URLSearchParams(location.search).get('edit');fill(edit?await api(`/api/admin/posts/${encodeURIComponent(edit)}`):null);form.removeAttribute('inert');}catch(error){message(error.message,true);notifications.error(error.message);}
+try{const session=await api('/api/admin/session');if(session.saveContractVersion!==2||session.contentSchemaVersion!==11)throw new Error('Backend đang chạy phiên bản cũ. Khởi động lại IVAN Admin rồi tải lại CMS.');csrf=session.csrfToken;$('#admin-email').textContent=session.email;const edit=new URLSearchParams(location.search).get('edit');fill(edit?await api(`/api/admin/posts/${encodeURIComponent(edit)}`):null);form.removeAttribute('inert');}catch(error){message(error.message,true);notifications.error(error.message);}

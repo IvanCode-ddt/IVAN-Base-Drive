@@ -9,8 +9,8 @@ export function openDatabase(filename) {
   if (filename !== ':memory:') mkdirSync(path.dirname(filename), { recursive: true });
   const db = new DatabaseSync(filename);
   const initialVersion=db.prepare('PRAGMA user_version').get().user_version;
-  if(initialVersion>10){db.close();throw new Error('Database mới hơn ứng dụng.');}
-  if(filename!==':memory:'&&initialVersion<10&&db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='posts'").get()){
+  if(initialVersion>11){db.close();throw new Error('Database mới hơn ứng dụng.');}
+  if(filename!==':memory:'&&initialVersion<11&&db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='posts'").get()){
     try{const saved=verifiedBackup(db,filename);console.log(`Verified pre-migration backup: ${saved.path} (${saved.postCount} posts; integrity ok)`);}catch(error){db.close();throw error;}
   }
   db.exec(`PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;
@@ -24,7 +24,7 @@ export function openDatabase(filename) {
       created_at TEXT NOT NULL, updated_at TEXT NOT NULL
     ); CREATE INDEX IF NOT EXISTS posts_status_updated ON posts(status, updated_at DESC);`);
   const version = db.prepare('PRAGMA user_version').get().user_version;
-  if (version > 10) { db.close(); throw new Error('Database mới hơn phiên bản ứng dụng. Không tự động hạ cấp.'); }
+  if (version > 11) { db.close(); throw new Error('Database mới hơn phiên bản ứng dụng. Không tự động hạ cấp.'); }
   if (version < 2) {
     db.exec('BEGIN IMMEDIATE');
     try {
@@ -116,14 +116,20 @@ export function openDatabase(filename) {
     UPDATE posts SET is_spotlight=0 WHERE is_spotlight=1;
     PRAGMA user_version=10; COMMIT;`);
   }catch(error){db.exec('ROLLBACK');db.close();throw error;}}
+  if(version<11){db.exec('BEGIN IMMEDIATE');try{
+    const names=db.prepare('PRAGMA table_info(posts)').all().map(column=>column.name);
+    if(!names.includes('minimum_requirements'))db.exec("ALTER TABLE posts ADD COLUMN minimum_requirements TEXT NOT NULL DEFAULT ''");
+    if(!names.includes('recommended_requirements'))db.exec("ALTER TABLE posts ADD COLUMN recommended_requirements TEXT NOT NULL DEFAULT ''");
+    db.exec('PRAGMA user_version=11; COMMIT;');
+  }catch(error){db.exec('ROLLBACK');db.close();throw error;}}
   const decode = row => row ? { ...row, images: JSON.parse(row.images),metadata:JSON.parse(row.metadata),media_sources:JSON.parse(row.media_sources), drive_files: linkedFiles(row.id) } : null;
-  const columns = ['slug','title','category','description','introduction','instructions','cover_url','images','attachment_url','drive_file_id','media_url','status','is_pinned','pin_order','is_spotlight','metadata','media_sources'];
+  const columns = ['slug','title','category','description','introduction','instructions','cover_url','images','attachment_url','drive_file_id','media_url','status','is_pinned','pin_order','is_spotlight','metadata','media_sources','minimum_requirements','recommended_requirements'];
   const values = post => columns.map(key => ['images','metadata','media_sources'].includes(key) ? JSON.stringify(post[key]) : post[key]);
   const pinFields=(post,old)=>{
     const is_spotlight=0;
     const is_pinned=post.is_pinned??old?.is_pinned??0,pin_order=post.pin_order??old?.pin_order??0;
     if(is_pinned===1&&db.prepare('SELECT COUNT(*) AS n FROM posts WHERE is_pinned=1 AND deleted_at IS NULL AND id<>?').get(old?.id||'').n>=5)throw new InputError('Tối đa 5 bài ghim. Hãy bỏ ghim một bài trước.');
-    return{...post,is_pinned,pin_order,is_spotlight,metadata:post.metadata??old?.metadata??{},media_sources:post.media_sources??old?.media_sources??[]};
+    return{...post,is_pinned,pin_order,is_spotlight,metadata:post.metadata??old?.metadata??{},media_sources:post.media_sources??old?.media_sources??[],minimum_requirements:Object.hasOwn(post,'minimum_requirements')?post.minimum_requirements:old?.minimum_requirements??'',recommended_requirements:Object.hasOwn(post,'recommended_requirements')?post.recommended_requirements:old?.recommended_requirements??''};
   };
   return {
     close: () => db.close(),

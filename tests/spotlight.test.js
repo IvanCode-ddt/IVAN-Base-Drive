@@ -16,12 +16,14 @@ const config={baseUrl:'http://localhost:3000',redirectUri:'http://localhost:3000
 
 test('Highlight API requires Google Admin and CSRF; config only accepts unique Published posts and stays independent of pins',async t=>{
  const db=openDatabase(':memory:');t.after(()=>db.close());
- const first=db.create(post('first')),second=db.create(post('second')),draft=db.create(post('draft',{status:'draft'}));let pending;
+ const first=db.create(post('sekiro',{title:'Sekiro™: Shadows Die Twice - GOTY Edition (Việt hóa sẵn)'})),second=db.create(post('second')),draft=db.create(post('draft',{status:'draft'}));let pending;
  const oauth={generateAuthUrl(value){pending=value;return'https://accounts.google.com/auth';},async getToken(){return{tokens:{id_token:'test'}};},async verifyIdToken(){return{getPayload:()=>({sub:'test',email:config.adminEmail,email_verified:true,nonce:pending.nonce})};}};
  const app=createApp({config,db,oauthClient:oauth}),agent=request.agent(app);
  await request(app).get('/api/admin/highlights').expect(401);
  await agent.get('/auth/google');await agent.get('/auth/google/callback').query({state:pending.state,code:'test'}).expect(302);
- const session=(await agent.get('/api/admin/session')).body;assert.equal(session.contentSchemaVersion,10);
+ const session=(await agent.get('/api/admin/session')).body;assert.equal(session.contentSchemaVersion,11);
+ const adminPosts=(await agent.get('/api/admin/posts').expect(200)).body;
+ assert.ok(adminPosts.some(post=>post.id===first.id&&post.title.startsWith('Sekiro™')));
  await agent.put('/api/admin/highlights').send({enabled:true,interval_seconds:6,slides:[]}).expect(403);
  const save=body=>agent.put('/api/admin/highlights').set('Origin',config.baseUrl).set('X-CSRF-Token',session.csrfToken).send(body);
  await save({enabled:true,interval_seconds:2,slides:[]}).expect(400);
@@ -29,6 +31,8 @@ test('Highlight API requires Google Admin and CSRF; config only accepts unique P
  await save({enabled:true,interval_seconds:6,slides:[{post_id:first.id,enabled:true},{post_id:first.id,enabled:false}]}).expect(400);
  const saved=(await save({enabled:true,interval_seconds:6,slides:[{post_id:second.id,enabled:false},{post_id:first.id,enabled:true}]}).expect(200)).body;
  assert.deepEqual(saved.slides.map(slide=>slide.post_id),[second.id,first.id]);
+ assert.ok(saved.slides.some(slide=>slide.post_id===first.id));
+ assert.ok((await agent.get('/api/admin/highlights').expect(200)).body.slides.some(slide=>slide.title.startsWith('Sekiro™')));
  assert.deepEqual((await request(app).get('/api/highlights').expect(200)).body.slides.map(slide=>slide.post.id),[first.id]);
  db.setPin(first.id,1,1);db.setPin(first.id,0,0);
  assert.equal(db.highlightConfig().slides.length,2);
@@ -47,8 +51,8 @@ test('v9 migration makes a verified backup and converts legacy Spotlight without
   db.setPin(saved.id,0,0);assert.equal(db.highlightConfig().slides[0].post_id,saved.id);
   const reports=(await readdir(path.join(directory,'backups'))).filter(name=>name.endsWith('.verified.json'));
   assert.equal(JSON.parse(await readFile(path.join(directory,'backups',reports[0]),'utf8')).integrity,'ok');
-  const check=new DatabaseSync(filename,{readOnly:true});assert.equal(check.prepare('PRAGMA user_version').get().user_version,10);check.close();
- }finally{db?.close();await rm(directory,{recursive:true,force:true});}
+  const check=new DatabaseSync(filename,{readOnly:true});assert.equal(check.prepare('PRAGMA user_version').get().user_version,11);check.close();
+ }finally{db?.close();await rm(directory,{recursive:true,force:true,maxRetries:5,retryDelay:100});}
 });
 
 test('static export publishes ordered Highlight config only for Published, live posts',async()=>{

@@ -20,8 +20,10 @@ export const CONTENT_FIELDS={
  music:[['artist','Nghệ sĩ',160],['album','Album',160],['duration','Thời lượng',80],['format','Định dạng âm thanh',80],['size_label','Dung lượng (Admin cung cấp)',80]],
  other:[['file_type','Loại file',120],['size_label','Dung lượng (Admin cung cấp)',80],['extra_description','Mô tả bổ sung',1000,'textarea']],
 };
+export const LEGACY_CONTENT_FIELDS={game:[['system_requirements','Yêu cầu cấu hình',3000,'textarea']]};
 export function publicMetadata(value,category){
- return Object.fromEntries((CONTENT_FIELDS[category]||[]).filter(([key,,max])=>typeof value?.[key]==='string'&&value[key].trim()&&value[key].length<=max).map(([key])=>[key,value[key].trim()]));
+ const fields=[...(CONTENT_FIELDS[category]||[]),...(LEGACY_CONTENT_FIELDS[category]||[])];
+ return Object.fromEntries(fields.filter(([key,,max])=>typeof value?.[key]==='string'&&value[key].trim()&&value[key].length<=max).map(([key])=>[key,value[key].trim()]));
 }
 export function formatBytes(value){
  if(!/^(?:0|[1-9]\d*)$/.test(String(value??'')))return '';

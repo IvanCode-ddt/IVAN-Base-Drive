@@ -31,6 +31,9 @@ test('CMS desktop and mobile: slug, Markdown, upload, draft/edit/publish and Dri
   for(const[name,viewport]of[['desktop',{width:1440,height:1000}],['mobile',{width:390,height:844}]]){
    const context=await browser.newContext({viewport});const page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
    await page.goto(config.baseUrl+'/auth/google');await page.locator('#create-post').click();await page.waitForSelector('#post-form:not([inert])');
+   await page.locator('[name=category]').selectOption('game');await page.locator('#game-requirements summary').click();
+   const minimumRequirements='CPU: bất kỳ\n- RAM: 8 GB\nGPU <script>alert(1)</script>',recommendedRequirements='Windows\n• 16 GB RAM';
+   await page.locator('#minimum-requirements').fill(minimumRequirements);await page.locator('#recommended-requirements').fill(recommendedRequirements);
    await page.locator('[name=title]').fill(`Ứng dụng thử nghiệm ${name}`);
    assert.equal(await page.locator('[name=slug]').inputValue(),`ung-dung-thu-nghiem-${name}`);
    await page.locator('[name=description]').fill('Mô tả kiểm thử CMS');
@@ -58,11 +61,13 @@ test('CMS desktop and mobile: slug, Markdown, upload, draft/edit/publish and Dri
    await page.locator('#picker-confirm').click();
    await page.locator('[data-share=test_file]').check();
    const selected=name==='mobile'?2:1;assert.equal(await page.locator('.selected-file').count(),selected);assert.equal(db.list().length,before);
-   await page.getByRole('button',{name:'Xem trước',exact:true}).click();await page.waitForSelector('#preview:not([hidden])');assert.ok(await page.locator('#preview strong').count());assert.equal(await page.evaluate(()=>window.CMS_XSS),undefined);
+   await page.getByRole('button',{name:'Xem trước',exact:true}).click();await page.waitForSelector('#preview:not([hidden])');assert.ok(await page.locator('#preview strong').count());assert.equal(await page.locator('#preview .requirements-card').count(),2);assert.ok((await page.locator('#preview .requirements-card').first().textContent()).includes('GPU <script>alert(1)</script>'));const requirementsLayout=await page.locator('#preview .requirements-grid').evaluate(element=>({columns:getComputedStyle(element).gridTemplateColumns.split(' ').length,whiteSpace:getComputedStyle(element.querySelector('p')).whiteSpace}));assert.equal(requirementsLayout.columns,name==='mobile'?1:2);assert.equal(requirementsLayout.whiteSpace,'pre-wrap');assert.equal(await page.evaluate(()=>window.CMS_XSS),undefined);
    await page.waitForFunction(()=>[...document.querySelectorAll('#preview img')].every(img=>img.complete&&img.naturalWidth>0));assert.equal(db.list().length,before);
    await page.getByRole('button',{name:name==='mobile'?'Xuất bản / cập nhật':'Lưu bản nháp',exact:true}).click();
    await page.waitForFunction(()=>!!document.querySelector('#saved-info').textContent);
-   const saved=db.list().find(p=>p.slug.endsWith(name));assert.ok(saved);assert.equal(saved.drive_files.length,selected);assert.equal(saved.status,name==='mobile'?'published':'draft');
+   const saved=db.list().find(p=>p.slug.endsWith(name));assert.ok(saved);assert.equal(saved.drive_files.length,selected);assert.equal(saved.status,name==='mobile'?'published':'draft');assert.equal(saved.minimum_requirements,minimumRequirements);assert.equal(saved.recommended_requirements,recommendedRequirements);
+   await page.goto(config.baseUrl+`/admin/editor.html?edit=${saved.id}`);await page.waitForFunction(()=>!document.querySelector('#post-form').hasAttribute('inert'));
+   assert.equal(await page.locator('#minimum-requirements').inputValue(),minimumRequirements);assert.equal(await page.locator('#recommended-requirements').inputValue(),recommendedRequirements);
    await page.locator('[data-remove=test_file]').click();assert.equal(db.get(saved.id).drive_files.length,selected);
    await page.getByRole('button',{name:'Xuất bản / cập nhật',exact:true}).click();await page.waitForFunction(()=>document.querySelector('#post-status').dataset.status==='published');
    assert.equal(db.get(saved.id).drive_files.length,selected-1);

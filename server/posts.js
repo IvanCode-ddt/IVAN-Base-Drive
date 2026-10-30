@@ -1,5 +1,5 @@
 export const categories = ['film', 'game', 'music', 'app', 'other'];
-import { isUploadPath,CONTENT_FIELDS,MEDIA_TYPES,directMediaURL,drivePreview } from '../js/media.js';
+import { isUploadPath,CONTENT_FIELDS,LEGACY_CONTENT_FIELDS,MEDIA_TYPES,directMediaURL,drivePreview } from '../js/media.js';
 export class InputError extends Error {}
 export function validatePin(body){
   if(!body||![true,false,0,1].includes(body.is_pinned)||!Number.isInteger(body.pin_order)||body.pin_order<0||body.pin_order>9999)throw new InputError('Thông tin ghim không hợp lệ; thứ tự từ 0 đến 9999.');
@@ -20,6 +20,11 @@ function text(body, key, max, required = false) {
   const value = body[key] ?? '';
   if (typeof value !== 'string' || value.length > max || (required && !value.trim())) throw new InputError(`${key}: không hợp lệ hoặc vượt ${max} ký tự.`);
   return value.trim();
+}
+function freeText(body,key,max){
+  const value=body[key]??'';
+  if(typeof value!=='string'||value.length>max)throw new InputError(`${key}: cần là văn bản không quá ${max} ký tự.`);
+  return value;
 }
 function httpsUrl(value, key) {
   if (!value) return '';
@@ -49,7 +54,7 @@ export function validatePost(body) {
   });
   const pin=Object.hasOwn(body,'is_pinned')||Object.hasOwn(body,'pin_order')?validatePin(body):{};
   const metadata={};if(Object.hasOwn(body,'metadata')){
-    const value=body.metadata,fields=new Map(Object.values(CONTENT_FIELDS).flat().map(field=>[field[0],field]));
+    const value=body.metadata,fields=new Map([...Object.values(CONTENT_FIELDS),...Object.values(LEGACY_CONTENT_FIELDS)].flat().map(field=>[field[0],field]));
     if(!value||typeof value!=='object'||Array.isArray(value)||Object.keys(value).length>fields.size)throw new InputError('Metadata phải là object gồm các trường hỗ trợ.');
     for(const[key,content]of Object.entries(value)){
       const field=fields.get(key);if(!field||typeof content!=='string'||content.length>field[2])throw new InputError('Trường metadata không hợp lệ hoặc quá dài.');
@@ -73,5 +78,5 @@ export function validatePost(body) {
       }else throw new InputError('Loại nguồn phát không hợp lệ.');
     }
   }
-  return { title, slug, category: body.category, description, introduction, instructions, cover_url, images, attachment_url, drive_file_id, media_url, status: body.status,...pin,...(Object.hasOwn(body,'metadata')?{metadata}:{}),...(Object.hasOwn(body,'media_sources')?{media_sources}:{}) };
+  return { title, slug, category: body.category, description, introduction, instructions, cover_url, images, attachment_url, drive_file_id, media_url, status: body.status,...pin,...(Object.hasOwn(body,'metadata')?{metadata}:{}),...(Object.hasOwn(body,'media_sources')?{media_sources}:{}),...(Object.hasOwn(body,'minimum_requirements')?{minimum_requirements:freeText(body,'minimum_requirements',20000)}:{}),...(Object.hasOwn(body,'recommended_requirements')?{recommended_requirements:freeText(body,'recommended_requirements',20000)}:{}) };
 }

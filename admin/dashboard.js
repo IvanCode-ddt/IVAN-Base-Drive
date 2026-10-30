@@ -33,7 +33,7 @@ function route(){const view=location.hash==='#trash'?'trash':location.hash==='#s
 window.addEventListener('hashchange',route);route();
 $('#dashboard-logout').addEventListener('click',async()=>{await api('/api/admin/logout',{method:'POST',body:'{}'});location.assign('/login');});
 try{
- const session=await api('/api/admin/session');csrf=session.csrfToken;$('#dashboard-email').textContent=session.email;
+ const session=await api('/api/admin/session');if(session.contentSchemaVersion!==11)throw new Error('Backend đang chạy phiên bản cũ. Khởi động lại IVAN Admin rồi tải lại Dashboard.');csrf=session.csrfToken;$('#dashboard-email').textContent=session.email;
  initPublishUI({api,notifications});
  $('#post-category').innerHTML='<option value="">Tất cả danh mục</option>'+CATEGORIES.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
  await load();const settings=await api('/api/admin/settings');$('#settings-info').textContent=`Tài khoản: ${settings.email}\nThư mục Drive: ${settings.driveRootId||'Mặc định'}\nXuất bản: ${settings.exportCommand}\nQuản trị và OAuth chạy local. Trang này không hiển thị secret/token.`;
