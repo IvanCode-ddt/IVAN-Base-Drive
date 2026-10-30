@@ -1,7 +1,9 @@
 import { CATEGORIES,filterPosts,sortPinnedPosts } from './data.js?v=15';
-import { cover,detailHTML,escapeHTML,categoryName,spotlightHTML } from './content.js?v=16';
-import { createPostSource } from './post-source.js?v=10';
+import { cover,detailHTML,escapeHTML,categoryName,spotlightHTML } from './content.js?v=17';
+import { createPostSource } from './post-source.js?v=11';
 import {initPlayers} from './media.js?v=14';
+import {albumCardHTML,albumDetailHTML} from './music-content.js?v=1';
+import {initAlbumPlayer} from './music-player.js?v=1';
 const source=createPostSource();
 const $=s=>document.querySelector(s);
 // Public entry point only. Nothing is hidden while JS/observers are unavailable.
@@ -21,26 +23,56 @@ function enter(node,distance=8){
 }
 reducedMotion.addEventListener?.('change',syncMotion);ambientViewport.addEventListener?.('change',syncMotion);
 document.addEventListener('visibilitychange',syncMotion);syncMotion();
-let posts=[],category='all',libraryScroll=0,routeVersion=0;
+let posts=[],albums=[],albumsLoaded=false,category='all',group='library',libraryScroll=0,routeVersion=0,highlightConfig=null;
 let disposePlayers=()=>{};
 let highlightTimer;
 function renderFilters(){
  const filters=$('#category-filters');
- if(!filters.children.length)filters.innerHTML=[{id:'all',name:'Tất cả'},...CATEGORIES].map(c=>`<button class="filter" data-category="${c.id}">${c.name}</button>`).join('');
+ if(!filters.children.length)filters.innerHTML=[{id:'all',name:'Tất cả'},...CATEGORIES.filter(c=>['game','app','other'].includes(c.id))].map(c=>`<button class="filter" data-category="${c.id}">${c.name}</button>`).join('');
  for(const button of filters.children)button.setAttribute('aria-pressed',String(button.dataset.category===category));
 }
 function renderPosts(){
- const query=$('#search-input').value.trim(),list=sortPinnedPosts(filterPosts(posts,query,category));
- $('#result-count').textContent=`${list.length} bài viết`;
- $('#post-grid').innerHTML=list.map(p=>cardHTML(p)).join('');
- $('#empty-state').hidden=list.length>0;
- if(list.length)return;
- const categoryHasPosts=category==='all'?posts.some(post=>post.status==='published'&&!post.deleted_at):posts.some(post=>post.status==='published'&&!post.deleted_at&&post.category===category);
- const comingSoon=!query&&!categoryHasPosts;
+ const query=$('#search-input').value.trim(),albumIds=new Set(albums.map(album=>album.post_id));
+ const empty=$('#empty-state'),grid=$('#post-grid'),music=$('#music-view'),films=$('#film-view');
+ $('#collection-title').textContent=group==='library'?'Khám phá thư viện':group==='music'?'Nhạc':'Phim';
+ $('#collection-eyebrow').textContent=group==='library'?'ĐƯỢC CHỌN CHO BẠN':group==='music'?'ALBUM & BÀI HÁT':'IVAN CINEMA';
+ for(const link of document.querySelectorAll('[data-group]')){if(link.dataset.group===group)link.setAttribute('aria-current','page');else link.removeAttribute('aria-current');}
+ $('#category-filters').hidden=group!=='library';
+ $('.toolbar').hidden=group==='films';
+ grid.hidden=group!=='library';music.hidden=group!=='music';films.hidden=group!=='films';
+ empty.hidden=true;$('#feedback-request').hidden=true;
+ if(group==='films'){$('#result-count').textContent='';return;}
+ if(group==='library'){
+  const normal=posts.filter(post=>['game','app','other'].includes(post.category)&&!albumIds.has(post.id));
+  const list=sortPinnedPosts(filterPosts(normal,query,category));
+  $('#result-count').textContent=`${list.length} bài viết`;grid.innerHTML=list.map(cardHTML).join('');
+  if(list.length)return;
+  const categoryHasPosts=category==='all'?normal.some(post=>post.status==='published'&&!post.deleted_at):normal.some(post=>post.status==='published'&&!post.deleted_at&&post.category===category);
+  const comingSoon=!query&&!categoryHasPosts;
+  showEmpty(comingSoon,query);return;
+ }
+ const musicPosts=posts.filter(post=>post.category==='music'&&!albumIds.has(post.id));
+ const visibleAlbums=albums.filter(album=>`${album.title} ${album.artist||''} ${album.description||''} ${album.genre||''} ${album.tracks.map(track=>track.title).join(' ')}`.toLocaleLowerCase('vi').includes(query.toLocaleLowerCase('vi')));
+ const legacy=sortPinnedPosts(filterPosts(musicPosts,query,'music'));
+ $('#result-count').textContent=`${visibleAlbums.length} album · ${legacy.length} nội dung khác`;
+ $('#album-grid').innerHTML=visibleAlbums.map(albumCardHTML).join('');
+ $('#legacy-music-section').hidden=!legacy.length;$('#legacy-music-grid').innerHTML=legacy.map(cardHTML).join('');
+ if(visibleAlbums.length||legacy.length)return;
+ showEmpty(!query,query,'music');
+}
+function showEmpty(comingSoon,query,kind='library'){
+ const empty=$('#empty-state');empty.hidden=false;
  $('#empty-state-icon').textContent=comingSoon?'✦':'⌕';
  $('#empty-state-title').textContent=comingSoon?'Coming soon':'Không tìm thấy nội dung bạn đang tìm';
- $('#empty-state-description').textContent=comingSoon?'Nội dung đang được chuẩn bị. Hãy quay lại sau nhé!':'Thử từ khóa khác hoặc xóa bộ lọc để xem thêm nội dung.';
+ $('#empty-state-description').textContent=comingSoon?(kind==='music'?'Album nhạc đang được chuẩn bị. Hãy quay lại sau nhé!':'Nội dung đang được chuẩn bị. Hãy quay lại sau nhé!'):'Thử từ khóa khác hoặc xóa bộ lọc để xem thêm nội dung.';
+ $('#reset-filters').textContent=comingSoon?'Xóa bộ lọc':'Xóa bộ lọc / thử lại';
  $('#feedback-request').hidden=!query;
+}
+function renderGroup(){
+ const hash=location.hash;
+ group=hash==='#music'?'music':hash==='#films'?'films':'library';
+ $('#library-intro').hidden=group!=='library';
+ renderPosts();
 }
 function renderHighlights(config){
  const available=new Map(posts.filter(post=>post.status==='published'&&!post.deleted_at).map(post=>[post.id,post]));
@@ -89,7 +121,7 @@ function renderHighlights(config){
  reduced.addEventListener?.('change',schedule);
  syncPauseLabel();schedule();
 }
-function cardHTML(p){return `<article><a class="post-card" href="#post/${encodeURIComponent(p.slug)}" aria-label="Xem ${escapeHTML(p.title)}">${cover(p)}<div class="card-content"><div class="card-meta"><span class="category-label">${categoryName(p.category)}</span>${p.is_pinned?'<span class="pinned-badge">★ Ghim</span>':''}</div><h3>${escapeHTML(p.title)}</h3><p>${escapeHTML(p.description)}</p><div class="card-bottom"><span>Xem chi tiết</span><span aria-hidden="true">↗</span></div></div></a></article>`;}
+function cardHTML(p){const type=p.content_type==='music_album'?'album':'post';return `<article><a class="post-card" href="#${type}/${encodeURIComponent(p.slug)}" aria-label="Xem ${escapeHTML(p.title)}">${cover(p)}<div class="card-content"><div class="card-meta"><span class="category-label">${categoryName(p.category)}</span>${p.is_pinned?'<span class="pinned-badge">★ Ghim</span>':''}</div><h3>${escapeHTML(p.title)}</h3><p>${escapeHTML(p.description)}</p><div class="card-bottom"><span>Xem chi tiết</span><span aria-hidden="true">↗</span></div></div></a></article>`;}
 async function route(){
  disposePlayers();disposePlayers=()=>{};
  const version=++routeVersion,hash=location.hash,library=$('#library-view'),detail=$('#detail-view');
@@ -99,13 +131,26 @@ async function route(){
   detail.innerHTML='<p role="status">Đang tải bài viết…</p>';
   try{
    const p=await source.get(decodeURIComponent(hash.slice(6)));if(version!==routeVersion)return;
-   detail.innerHTML=`<a class="back-link" href="#collection">← Trở về thư viện</a>${detailHTML(p)}`;
+   if(p.content_type==='music_album'){location.hash=`#album/${encodeURIComponent(p.slug)}`;return;}
+   detail.innerHTML=`<a class="back-link" href="#${group}">← Trở về ${group==='music'?'Nhạc':'thư viện'}</a>${detailHTML(p)}`;
    disposePlayers=initPlayers(detail);
    enter(detail.querySelector('.detail-header'));
    document.title=`${p.title} — IVAN Base Drive`;window.scrollTo(0,0);detail.querySelector('h1').focus({preventScroll:true});
-  }catch(error){if(version===routeVersion)detail.innerHTML=`<a class="back-link" href="#collection">← Trở về thư viện</a><p role="alert">${escapeHTML(error.message)}</p>`;}
+  }catch(error){if(version===routeVersion)detail.innerHTML=`<a class="back-link" href="#${group}">← Trở về thư viện</a><p role="alert">${escapeHTML(error.message)}</p>`;}
+ }else if(hash.startsWith('#album/')){
+  if(!library.hidden)libraryScroll=window.scrollY;
+  library.hidden=true;detail.hidden=false;detail.innerHTML='<p role="status">Đang tải album…</p>';
+  try{
+   if(!albumsLoaded){albums=await source.musicAlbums();albumsLoaded=true;}
+   if(version!==routeVersion)return;
+   const slug=decodeURIComponent(hash.slice(7)),album=albums.find(item=>item.slug===slug);
+   if(!album)throw new Error('Album không tồn tại hoặc chưa được xuất bản.');
+   group='music';detail.innerHTML=albumDetailHTML(album);disposePlayers=initAlbumPlayer(detail,album);
+   document.title=`${album.title} — IVAN Base Drive`;window.scrollTo(0,0);detail.querySelector('h1').focus({preventScroll:true});
+  }catch(error){if(version===routeVersion)detail.innerHTML=`<a class="back-link" href="#music">← Trở về Nhạc</a><p role="alert">${escapeHTML(error.message)}</p>`;}
  }else{
   const returning=!detail.hidden;library.hidden=false;detail.hidden=true;document.title='IVAN Base Drive — Thư viện nội dung số';
+  renderGroup();
   if(returning){window.scrollTo(0,libraryScroll);$('#collection-title').setAttribute('tabindex','-1');$('#collection-title').focus({preventScroll:true});}
  }
 }
@@ -118,7 +163,14 @@ $('#detail-view').addEventListener('click',event=>{
 });
 async function load(){
  $('#result-count').textContent='Đang tải…';$('#empty-state').hidden=true;
- try{posts=await source.list();renderPosts();$('#library-status').hidden=true;try{renderHighlights(await source.highlights());}catch(error){console.error('Không tải được cấu hình Highlight:',error);renderHighlights(null);}}
+ try{
+  posts=await source.list();
+  try{albums=await source.musicAlbums();albumsLoaded=true;$('#music-status').hidden=true;}
+  catch(error){albums=[];albumsLoaded=false;$('#music-status').hidden=false;$('#music-status').textContent=`Không tải được album nhạc: ${error.message}`;}
+  renderPosts();$('#library-status').hidden=true;
+  try{highlightConfig=await source.highlights();renderHighlights(highlightConfig);}catch(error){console.error('Không tải được cấu hình Highlight:',error);highlightConfig=null;renderHighlights(null);}
+  renderGroup();
+ }
  catch{$('#result-count').textContent='';$('#library-status').hidden=false;$('#library-status').textContent=source.local?'Không kết nối được máy chủ. Hãy chạy npm.cmd start và mở http://localhost:3000.':'Chưa tải được dữ liệu tĩnh. Hãy chạy npm.cmd run export và cập nhật thư mục docs/ lên GitHub Pages.';}
 }
 $('#category-filters').addEventListener('click',e=>{const b=e.target.closest('[data-category]');if(!b)return;category=b.dataset.category;renderFilters();renderPosts();document.querySelector(`[data-category="${category}"]`).focus();});

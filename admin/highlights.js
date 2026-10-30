@@ -1,4 +1,4 @@
-import {escapeHTML,spotlightHTML} from '/js/content.js?v=16';
+import {escapeHTML,spotlightHTML} from '/js/content.js?v=17';
 import {createNotifications} from './notifications.js';
 
 const $=selector=>document.querySelector(selector),notifications=createNotifications();

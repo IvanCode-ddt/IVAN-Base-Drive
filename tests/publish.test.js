@@ -13,7 +13,7 @@ import {allowedPublishPath} from '../server/publish-bundle.js';
 async function fixture(t){
  const root=await mkdtemp(path.join(tmpdir(),'ivan-publish-test-')),databasePath=path.join(root,'data/db.sqlite');
  for(const dir of ['js','css','images'])await mkdir(path.join(root,dir),{recursive:true});
- for(const file of ['index.html','css/style.css',...['main','data','content','post-source','media','markdown'].map(name=>`js/${name}.js`)])await copyFile(file,path.join(root,file));
+ for(const file of ['index.html','css/style.css',...['main','data','content','post-source','media','markdown','music-content','music-player'].map(name=>`js/${name}.js`)])await copyFile(file,path.join(root,file));
  await writeFile(path.join(root,'.gitignore'),'data/\nuploads/\n');await writeFile(path.join(root,'source.txt'),'committed source\n');
  const db=openDatabase(databasePath);t.after(async()=>{db.close();await rm(root,{recursive:true,force:true});});
  await exportStatic({databasePath,sourceDir:root,outputDir:path.join(root,'docs')});

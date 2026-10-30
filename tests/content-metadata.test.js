@@ -104,7 +104,7 @@ test('v10 migration backs up safely, preserves old post data and exports new fie
   assert.equal(migrated.is_pinned,1);assert.equal(migrated.pin_order,7);assert.equal(migrated.drive_files[0].file_id,'preserved-file');assert.equal(db.highlightConfig().slides[0].post_id,saved.id);
   const backupDir=path.join(directory,'backups'),reportName=(await readdir(backupDir)).find(name=>name.endsWith('.verified.json'));
   assert.equal(JSON.parse(await readFile(path.join(backupDir,reportName),'utf8')).integrity,'ok');
-  const check=new DatabaseSync(filename,{readOnly:true});assert.equal(check.prepare('PRAGMA user_version').get().user_version,12);check.close();
+  const check=new DatabaseSync(filename,{readOnly:true});assert.equal(check.prepare('PRAGMA user_version').get().user_version,13);check.close();
   db.update(saved.id,validatePost({...base,slug:'sekiro',title:'Sekiro',category:'game',minimum_requirements:'CPU\n- RAM\nGPU',recommended_requirements:'• 16 GB',install_size:'25 GB',operating_systems:['Windows','Linux'],metadata:migrated.metadata,introduction:migrated.introduction}));
   const updatedAt=db.get(saved.id).updated_at;
   db.close();db=null;

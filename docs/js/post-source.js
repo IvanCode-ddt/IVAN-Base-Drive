@@ -4,7 +4,7 @@ export function isLocalBackend(location) {
 }
 export function createPostSource({location=globalThis.location,fetcher=globalThis.fetch}={}) {
   const local=isLocalBackend(location);
-  let snapshot;
+  let snapshot,albumSnapshot;
   async function json(url) {
     const response=await fetcher(url,{cache:'no-store'});
     if(!response.ok) throw new Error(response.status===404?'Bài viết không tồn tại hoặc chưa được xuất bản.':'Không tải được dữ liệu bài viết.');
@@ -22,10 +22,18 @@ export function createPostSource({location=globalThis.location,fetcher=globalThi
     if(data.schemaVersion!==1||typeof data.enabled!=='boolean'||!Number.isInteger(data.interval_seconds)||!Array.isArray(data.slides))throw new Error('Cấu hình Highlight không hợp lệ. Hãy xuất lại website.');
     return data;
   }
+  async function musicAlbums() {
+    if(!albumSnapshot)albumSnapshot=json(local?'/api/music/albums':new URL('./content/music.json',location.href).href).then(data=>{
+      if(data.schemaVersion!==1||!Array.isArray(data.albums)||data.albums.some(album=>!Array.isArray(album.tracks)))throw new Error(local?'Dữ liệu album nhạc không hợp lệ.':'Dữ liệu album nhạc không hợp lệ. Hãy xuất lại website.');
+      return data.albums;
+    }).catch(error=>{albumSnapshot=undefined;throw error;});
+    return albumSnapshot;
+  }
   return {
     local,
     list:()=>local?json('/api/posts'):staticPosts(),
     highlights,
+    musicAlbums,
     async get(slug) {
       if(local)return json(`/api/posts/${encodeURIComponent(slug)}`);
       const post=(await staticPosts()).find(p=>p.slug===slug);

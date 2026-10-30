@@ -52,7 +52,7 @@ test('image size/pixel limits reject dangerous inputs, and export copies only pu
  const dir=await mkdtemp(path.join(tmpdir(),'ivan-export-media-')),sourceDir=path.join(dir,'source'),outputDir=path.join(dir,'docs'),databasePath=path.join(dir,'db.sqlite');let db;
  try{
   for(const folder of ['js','css','images','uploads'])await mkdir(path.join(sourceDir,folder),{recursive:true});
-  for(const file of ['index.html','css/style.css',...['main.js','data.js','content.js','post-source.js','markdown.js','media.js'].map(f=>'js/'+f)])await copyFile(file,path.join(sourceDir,file));
+  for(const file of ['index.html','css/style.css',...['main.js','data.js','content.js','post-source.js','markdown.js','media.js','music-content.js','music-player.js'].map(f=>'js/'+f)])await copyFile(file,path.join(sourceDir,file));
   const png=await sharp({create:{width:10,height:10,channels:3,background:'#aabbcc'}}).png().toBuffer();
   for(const format of ['jpeg','webp']){const source=await sharp(png).toFormat(format).toBuffer();const saved=await saveImage(source,path.join(sourceDir,'uploads'));assert.equal((await sharp(await readFile(path.join(sourceDir,saved.path))).metadata()).format,'webp');}
   const large=await sharp({create:{width:5000,height:4000,channels:3,background:'white'}}).png().toBuffer();

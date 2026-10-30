@@ -1,5 +1,13 @@
 # IVAN Base Drive — Giai đoạn 3B
 
+## Thư viện Nhạc
+
+Trong Dashboard, chọn **+ Tạo bài viết → Nhạc** để mở trình soạn album riêng. Nhập tên album, thêm track, chọn nguồn phù hợp rồi lưu Draft hoặc Published. Sắp track bằng nút lên/xuống; khi dùng URL audio trực tiếp, chọn MIME audio và xác nhận quyền chia sẻ. Google Drive Preview chỉ mở trên Drive, không phải nguồn HTML5 stream. Chọn file ZIP/RAR/7z riêng nếu muốn có nút tải toàn album; nếu không, từng file vẫn có thể tải riêng khi quyền chia sẻ hỗ trợ.
+
+Album dùng bài viết danh mục `music` làm bản ghi cha cùng hai bảng `music_albums` và `music_tracks`; track giữ ID ổn định qua lần sắp xếp/chỉnh sửa. Migration SQLite tự tạo bản sao lưu đã xác minh trước khi nâng schema. Bài Nhạc cũ vẫn là bài viết thường và không tự chuyển thành album. Dữ liệu Phim cũ được giữ nguyên trong cơ sở dữ liệu nhưng khu vực Phim công khai chỉ hiện Coming soon; chưa có player hay trình soạn Phim.
+
+Sau khi lưu nội dung, chạy `npm.cmd run export` để tạo `docs/content/music.json` cùng các tài nguyên tĩnh. Chỉ album Published và metadata chia sẻ công khai được xuất; không đưa token hoặc thông tin xác thực vào website tĩnh.
+
 ## Giai đoạn 8 — Spotlight, metadata, video/audio theo yêu cầu
 
 Admin chọn tối đa một Spotlight chính (tự ghim), nhập metadata tùy chọn theo danh mục và cấu hình nguồn phát có quyền chia sẻ. Website dùng HTML5 cho URL media trực tiếp, Drive preview chỉ tạo iframe sau cú bấm và luôn giữ fallback tải/mở Drive. Không suy link download thành stream, không mở rộng OAuth scope. Xem [STAGE8-GUIDE.md](STAGE8-GUIDE.md) để quản lý và biết các giới hạn.

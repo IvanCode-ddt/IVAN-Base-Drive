@@ -1,9 +1,9 @@
-import {escapeHTML,detailHTML,categoryName} from '/js/content.js?v=16';
+import {escapeHTML,detailHTML,categoryName} from '/js/content.js?v=17';
 import {normalizeSearch,CATEGORIES} from '/js/data.js?v=7';
 import {createPostActions} from './actions.js?v=10';
 import {initPublishUI} from './publish.js?v=11';
 import {createNotifications} from './notifications.js';
-const $=s=>document.querySelector(s);let csrf='',posts=[],trash=[];
+const $=s=>document.querySelector(s);let csrf='',posts=[],trash=[],albums=[];
 const notifications=createNotifications();
 async function api(url,options={}){
  const response=await fetch(url,{...options,headers:{'Content-Type':'application/json','X-CSRF-Token':csrf,...options.headers}});
@@ -12,12 +12,13 @@ async function api(url,options={}){
 }
 function render(){
  const query=normalizeSearch($('#post-search').value),category=$('#post-category').value,status=$('#post-filter-status').value;
+ const albumIds=new Set(albums.map(album=>album.post_id));
  const shown=posts.filter(p=>(!category||p.category===category)&&(!status||p.status===status)&&normalizeSearch(p.title+' '+p.slug).includes(query));
  $('#dashboard-count').textContent=`${posts.length} bài · ${posts.filter(p=>p.status==='published').length} Published · ${trash.length} trong Thùng rác`;
- $('#post-table').innerHTML=shown.length?shown.map(p=>`<article class="dashboard-row"><div><h3>${escapeHTML(p.title)}</h3><p>${categoryName(p.category)} · <span class="status-badge" data-status="${p.status}">${p.status==='published'?'Published':'Draft'}</span>${p.is_pinned?` · <span class="status-badge">★ Ghim ${p.pin_order}</span>`:''}</p><small>${p.drive_files.length} file đã gắn · ${p.drive_files.filter(f=>f.sharing_confirmed===1&&f.sharing_access!=='restricted').length} file được công khai</small></div><div class="drive-actions"><a class="secondary-button" href="/admin/editor.html?edit=${p.id}">Sửa</a><button class="secondary-button" data-pin="${p.id}">${p.is_pinned?"★ Bỏ ghim":"☆ Ghim"}</button><button class="secondary-button" data-preview="${p.id}">Xem trước</button><button class="secondary-button" data-delete="${p.id}">Xóa</button></div></article>`).join(''):'<p>Không có bài phù hợp.</p>';
+ $('#post-table').innerHTML=shown.length?shown.map(p=>`<article class="dashboard-row"><div><h3>${escapeHTML(p.title)}</h3><p>${albumIds.has(p.id)?'Album nhạc':categoryName(p.category)} · <span class="status-badge" data-status="${p.status}">${p.status==='published'?'Published':'Draft'}</span>${p.is_pinned?` · <span class="status-badge">★ Ghim ${p.pin_order}</span>`:''}</p><small>${p.drive_files.length} file đã gắn · ${p.drive_files.filter(f=>f.sharing_confirmed===1&&f.sharing_access!=='restricted').length} file được công khai</small></div><div class="drive-actions"><a class="secondary-button" href="/admin/${albumIds.has(p.id)?'music-editor':'editor'}.html?edit=${p.id}">Sửa</a><button class="secondary-button" data-pin="${p.id}">${p.is_pinned?"★ Bỏ ghim":"☆ Ghim"}</button><button class="secondary-button" data-preview="${p.id}">Xem trước</button><button class="secondary-button" data-delete="${p.id}">Xóa</button></div></article>`).join(''):'<p>Không có bài phù hợp.</p>';
  $('#trash-table').innerHTML=trash.length?trash.map(p=>`<article class="dashboard-row"><div><h3>${escapeHTML(p.title)}</h3><p>Đã xóa: ${new Date(p.deleted_at).toLocaleString('vi-VN')}</p></div><div class="drive-actions"><button class="secondary-button" data-restore="${p.id}">Khôi phục</button><button class="secondary-button" data-purge="${p.id}">Xóa vĩnh viễn</button></div></article>`).join(''):'<p>Thùng rác trống.</p>';
 }
-async function load(){[posts,trash]=await Promise.all([api('/api/admin/posts'),api('/api/admin/trash')]);render();}
+async function load(){[posts,trash,albums]=await Promise.all([api('/api/admin/posts'),api('/api/admin/trash'),api('/api/admin/music/albums')]);render();}
 const actions=createPostActions({api,notifications,onComplete:async()=>{await load();$('#dashboard-message').textContent='Đã cập nhật. Chạy export để cập nhật bản tĩnh.';}});
 for(const id of ['post-search','post-category','post-filter-status'])$('#'+id).addEventListener('input',render);
 document.addEventListener('click',event=>{
@@ -30,9 +31,12 @@ async function savePin(post,pinned,order){try{await api(`/api/admin/posts/${post
 $('#preview-close').addEventListener('click',()=>$('#dashboard-preview').close());
 function route(){const view=location.hash==='#trash'?'trash':location.hash==='#settings'?'settings':'posts';for(const key of ['posts','trash','settings'])$('#'+key+'-dashboard').hidden=key!==view;}
 window.addEventListener('hashchange',route);route();
+const createDialog=$('#create-type-dialog');
+$('#create-post').addEventListener('click',()=>createDialog.showModal());
+$('#create-type-cancel').addEventListener('click',()=>createDialog.close());
 $('#dashboard-logout').addEventListener('click',async()=>{await api('/api/admin/logout',{method:'POST',body:'{}'});location.assign('/login');});
 try{
- const session=await api('/api/admin/session');if(session.contentSchemaVersion!==12)throw new Error('Backend đang chạy phiên bản cũ. Khởi động lại IVAN Admin rồi tải lại Dashboard.');csrf=session.csrfToken;$('#dashboard-email').textContent=session.email;
+ const session=await api('/api/admin/session');if(session.contentSchemaVersion!==13)throw new Error('Backend đang chạy phiên bản cũ. Khởi động lại IVAN Admin rồi tải lại Dashboard.');csrf=session.csrfToken;$('#dashboard-email').textContent=session.email;
  initPublishUI({api,notifications});
  $('#post-category').innerHTML='<option value="">Tất cả danh mục</option>'+CATEGORIES.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
  await load();const settings=await api('/api/admin/settings');$('#settings-info').textContent=`Tài khoản: ${settings.email}\nThư mục Drive: ${settings.driveRootId||'Mặc định'}\nXuất bản: ${settings.exportCommand}\nQuản trị và OAuth chạy local. Trang này không hiển thị secret/token.`;

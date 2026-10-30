@@ -20,6 +20,28 @@
 .highlight-slide-actions label{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:12px}
 .highlight-preview{margin:28px 0}.highlight-preview .spotlight{margin:12px 0;pointer-events:none}.highlight-preview .spotlight-slide,.highlight-preview .spotlight-cover,.highlight-preview .spotlight-copy{pointer-events:none}
 @media(max-width:600px){.admin-toast-region{right:12px;bottom:12px}.highlight-slide-row{align-items:flex-start;flex-direction:column}.highlight-slide-actions{width:100%}.highlight-settings{align-items:stretch;flex-direction:column}.highlight-settings input[type=number],.highlight-settings select{width:100%}}
+.create-type-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:20px 0}
+#create-type-dialog{width:min(720px,calc(100vw - 28px));padding:25px;background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:14px}
+#create-type-dialog::backdrop{background:#000b}
+.create-type-options>*{min-height:100px;display:grid;align-content:center;justify-content:start;gap:6px;padding:16px;text-align:left}
+.create-type-options small{color:var(--muted)}
+.create-type-options button:disabled{opacity:.6}
+.music-editor-main{max-width:980px}
+#music-form{display:grid;gap:18px;margin-top:24px}
+#music-form fieldset{min-width:0;margin:0;padding:23px;border:1px solid var(--line);border-radius:12px;display:grid;gap:14px}
+#music-form legend{padding:0 9px;color:var(--accent);font-weight:650}
+#music-form label{display:grid;gap:7px;font-size:13px}
+#music-form input,#music-form textarea,#music-form select{width:100%;padding:11px;background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:6px}
+#music-form input[type=number]{max-width:220px}
+#music-form .upload-picker{padding:16px;border:1px dashed #59644a;border-radius:9px}
+.music-cover-preview{width:180px;aspect-ratio:1;object-fit:cover;border-radius:10px}
+.album-track-editor{padding:17px!important;border-color:#343a32!important;background:#15191a}
+.album-track-editor legend{font-size:13px}
+.album-track-editor .sharing-label{display:flex!important;align-items:flex-start;grid-template-columns:auto 1fr;gap:9px}
+.album-track-editor .sharing-label input{width:auto;flex:none;margin-top:5px}
+.track-source-status{margin:0;color:var(--muted);font-size:12px}
+.selected-file{align-items:flex-start}
+@media(max-width:750px){.create-type-options{grid-template-columns:1fr}.create-type-options>*{min-height:74px}#music-form fieldset{padding:15px}}
 #post-form input[type=checkbox]{width:18px;height:18px;padding:0;accent-color:var(--accent)}
 #post-form .pin-toggle{display:flex;align-items:center;gap:10px;font-weight:650}
 #post-form #pin-order-wrap{max-width:320px}

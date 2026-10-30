@@ -4,7 +4,7 @@ import {createHash} from 'node:crypto';
 import {readPublished,readHighlights} from '../scripts/export-static.mjs';
 import {PublishError} from './publish-git.js';
 
-const fixed=new Set(['docs/index.html','docs/.nojekyll','docs/content/posts.json','docs/content/highlights.json','docs/css/style.css',...['main','data','content','post-source','media','markdown'].map(name=>`docs/js/${name}.js`)]);
+const fixed=new Set(['docs/index.html','docs/.nojekyll','docs/content/posts.json','docs/content/highlights.json','docs/content/music.json','docs/css/style.css',...['main','data','content','post-source','media','markdown','music-content','music-player'].map(name=>`docs/js/${name}.js`)]);
 export function allowedPublishPath(value){
  return fixed.has(value)||/^docs\/images\/[A-Za-z0-9_-]+\.(?:jpg|jpeg|png|webp|gif|avif|ico)$/i.test(value)||/^docs\/uploads\/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\.webp$/.test(value);
 }

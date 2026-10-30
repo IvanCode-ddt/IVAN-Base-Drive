@@ -9,8 +9,8 @@ export function openDatabase(filename) {
   if (filename !== ':memory:') mkdirSync(path.dirname(filename), { recursive: true });
   const db = new DatabaseSync(filename);
   const initialVersion=db.prepare('PRAGMA user_version').get().user_version;
-  if(initialVersion>12){db.close();throw new Error('Database mới hơn ứng dụng.');}
-  if(filename!==':memory:'&&initialVersion<12&&db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='posts'").get()){
+  if(initialVersion>13){db.close();throw new Error('Database mới hơn ứng dụng.');}
+  if(filename!==':memory:'&&initialVersion<13&&db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='posts'").get()){
     try{const saved=verifiedBackup(db,filename);console.log(`Verified pre-migration backup: ${saved.path} (${saved.postCount} posts; integrity ok)`);}catch(error){db.close();throw error;}
   }
   db.exec(`PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;
@@ -24,7 +24,7 @@ export function openDatabase(filename) {
       created_at TEXT NOT NULL, updated_at TEXT NOT NULL
     ); CREATE INDEX IF NOT EXISTS posts_status_updated ON posts(status, updated_at DESC);`);
   const version = db.prepare('PRAGMA user_version').get().user_version;
-  if (version > 12) { db.close(); throw new Error('Database mới hơn phiên bản ứng dụng. Không tự động hạ cấp.'); }
+  if (version > 13) { db.close(); throw new Error('Database mới hơn phiên bản ứng dụng. Không tự động hạ cấp.'); }
   if (version < 2) {
     db.exec('BEGIN IMMEDIATE');
     try {
@@ -128,6 +128,30 @@ export function openDatabase(filename) {
     if(!names.includes('operating_systems'))db.exec("ALTER TABLE posts ADD COLUMN operating_systems TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(operating_systems) AND json_type(operating_systems)='array')");
     db.exec('PRAGMA user_version=12; COMMIT;');
   }catch(error){db.exec('ROLLBACK');db.close();throw error;}}
+  if(version<13){db.exec('BEGIN IMMEDIATE');try{
+    db.exec(`CREATE TABLE IF NOT EXISTS music_albums(
+      post_id TEXT PRIMARY KEY REFERENCES posts(id) ON DELETE CASCADE,
+      artist TEXT NOT NULL DEFAULT '',
+      release_year INTEGER CHECK(release_year IS NULL OR release_year BETWEEN 1888 AND 2200),
+      genre TEXT NOT NULL DEFAULT '',
+      bundle_file_id TEXT NOT NULL DEFAULT ''
+    );
+    CREATE TABLE IF NOT EXISTS music_tracks(
+      id TEXT PRIMARY KEY,
+      album_id TEXT NOT NULL REFERENCES music_albums(post_id) ON DELETE CASCADE,
+      position INTEGER NOT NULL CHECK(position BETWEEN 0 AND 499),
+      title TEXT NOT NULL,
+      duration_seconds INTEGER CHECK(duration_seconds IS NULL OR duration_seconds BETWEEN 0 AND 86400),
+      source_kind TEXT NOT NULL CHECK(source_kind IN ('direct','drive_preview','download_only')),
+      direct_url TEXT NOT NULL DEFAULT '',
+      mime_type TEXT NOT NULL DEFAULT '',
+      drive_file_id TEXT NOT NULL DEFAULT '',
+      sharing_confirmed INTEGER NOT NULL DEFAULT 0 CHECK(sharing_confirmed IN (0,1)),
+      UNIQUE(album_id,position)
+    );
+    CREATE INDEX IF NOT EXISTS music_tracks_order ON music_tracks(album_id,position);
+    PRAGMA user_version=13; COMMIT;`);
+  }catch(error){db.exec('ROLLBACK');db.close();throw error;}}
   const decode = row => row ? { ...row, images: JSON.parse(row.images),metadata:JSON.parse(row.metadata),media_sources:JSON.parse(row.media_sources),operating_systems:JSON.parse(row.operating_systems), drive_files: linkedFiles(row.id) } : null;
   const columns = ['slug','title','category','description','introduction','instructions','cover_url','images','attachment_url','drive_file_id','media_url','status','is_pinned','pin_order','is_spotlight','metadata','media_sources','minimum_requirements','recommended_requirements','install_size','operating_systems'];
   const values = post => columns.map(key => ['images','metadata','media_sources','operating_systems'].includes(key) ? JSON.stringify(post[key]) : post[key]);
@@ -142,6 +166,7 @@ export function openDatabase(filename) {
     if(is_pinned===1&&db.prepare('SELECT COUNT(*) AS n FROM posts WHERE is_pinned=1 AND deleted_at IS NULL AND id<>?').get(old?.id||'').n>=5)throw new InputError('Tối đa 5 bài ghim. Hãy bỏ ghim một bài trước.');
     return{...post,is_pinned,pin_order,is_spotlight,metadata:post.metadata??old?.metadata??{},media_sources:post.media_sources??old?.media_sources??[],minimum_requirements:Object.hasOwn(post,'minimum_requirements')?post.minimum_requirements:old?.minimum_requirements??'',recommended_requirements:Object.hasOwn(post,'recommended_requirements')?post.recommended_requirements:old?.recommended_requirements??'',install_size:Object.hasOwn(post,'install_size')?post.install_size:old?.install_size??'',operating_systems:post.operating_systems??old?.operating_systems??[]};
   };
+  const musicTracks=postId=>db.prepare('SELECT * FROM music_tracks WHERE album_id=? ORDER BY position,id').all(postId);
   return {
     close: () => db.close(),
     linkedFiles,
@@ -157,6 +182,43 @@ export function openDatabase(filename) {
         post_id:slide.post_id,position:slide.position,enabled:slide.enabled===1,
         ...(publicOnly?{}:{status:slide.status,deleted_at:slide.deleted_at})
       }))};
+    },
+    isMusicAlbum(postId){return !!db.prepare('SELECT 1 FROM music_albums WHERE post_id=?').get(postId);},
+    musicAlbum(postId){const row=db.prepare('SELECT * FROM music_albums WHERE post_id=?').get(postId);if(!row)return null;return{...row,post:decode(db.prepare('SELECT * FROM posts WHERE id=? AND deleted_at IS NULL').get(postId)),tracks:musicTracks(postId)};},
+    musicAlbums({publicOnly=false}={}){
+      const where=publicOnly?"WHERE p.status='published' AND p.deleted_at IS NULL":"WHERE p.deleted_at IS NULL";
+      return db.prepare(`SELECT m.post_id FROM music_albums m JOIN posts p ON p.id=m.post_id ${where} ORDER BY p.updated_at DESC,p.id`).all().map(row=>this.musicAlbum(row.post_id)).filter(album=>album?.post);
+    },
+    saveMusicAlbum(post,id,files,album,adminEmail){
+      db.exec('BEGIN IMMEDIATE');
+      try{
+        const old=id?this.get(id):null;if(id&&!old){db.exec('ROLLBACK');return null;}
+        const beforeAlbum=id?this.musicAlbum(id):null,beforeFiles=id?linkedFiles(id):[];
+        if(post.category!=='music')throw new InputError('Album phải thuộc danh mục Nhạc.');
+        if(id&&!this.isMusicAlbum(id))throw new InputError('Bài nhạc cũ không tự chuyển thành album. Tạo một album mới để giữ nguyên dữ liệu gốc.');
+        if(id&&old.category!=='music')throw new InputError('Không thể đổi danh mục của một album nhạc.');
+        const fileIds=new Set(files.map(file=>file.file_id));
+        if(album.bundle_file_id&&!fileIds.has(album.bundle_file_id))throw new InputError('File tải toàn bộ chưa được chọn trong danh sách Google Drive.');
+        for(const track of album.tracks)if(track.drive_file_id&&!fileIds.has(track.drive_file_id))throw new InputError(`File Drive của track “${track.title}” chưa được chọn.`);
+        const saved=id?this.update(id,post):this.create(post);if(!saved){db.exec('ROLLBACK');return null;}
+        for(const oldFile of linkedFiles(saved.id))if(!fileIds.has(oldFile.file_id))this.unlinkFile(saved.id,oldFile.file_id);
+        for(const file of files){this.linkFile(saved.id,file);if(file.requested_sharing!==undefined)this.confirmFile(saved.id,file.file_id,file.requested_sharing?file:null,adminEmail);}
+        db.prepare(`INSERT INTO music_albums(post_id,artist,release_year,genre,bundle_file_id) VALUES(?,?,?,?,?)
+          ON CONFLICT(post_id) DO UPDATE SET artist=excluded.artist,release_year=excluded.release_year,genre=excluded.genre,bundle_file_id=excluded.bundle_file_id`)
+          .run(saved.id,album.artist,album.release_year,album.genre,album.bundle_file_id);
+        const oldIds=new Set(musicTracks(saved.id).map(track=>track.id));
+        for(const track of album.tracks)if(track.id&&!oldIds.has(track.id))throw new InputError('Track ID không thuộc album này.');
+        db.prepare('DELETE FROM music_tracks WHERE album_id=?').run(saved.id);
+        const insert=db.prepare(`INSERT INTO music_tracks(id,album_id,position,title,duration_seconds,source_kind,direct_url,mime_type,drive_file_id,sharing_confirmed)
+          VALUES(?,?,?,?,?,?,?,?,?,?)`);
+        album.tracks.forEach((track,position)=>insert.run(track.id||randomUUID(),saved.id,position,track.title,track.duration_seconds,track.source_kind,track.direct_url,track.mime_type,track.drive_file_id,Number(track.sharing_confirmed)));
+        let result=this.musicAlbum(saved.id);
+        if(old&&(JSON.stringify(beforeAlbum)!==JSON.stringify(result)||JSON.stringify(beforeFiles)!==JSON.stringify(linkedFiles(saved.id)))&&result.post.updated_at===old.updated_at){
+          db.prepare('UPDATE posts SET updated_at=? WHERE id=?').run(new Date().toISOString(),saved.id);
+          result=this.musicAlbum(saved.id);
+        }
+        db.exec('COMMIT');return result;
+      }catch(error){db.exec('ROLLBACK');error.postSaveRolledBack=true;throw error;}
     },
     saveHighlightConfig(config){
       db.exec('BEGIN IMMEDIATE');try{

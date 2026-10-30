@@ -42,7 +42,8 @@
           "download_url": "https://drive.google.com/uc?id=1I4uAL_32W7vwNoj9c25nx9VYRHPvLdgm&export=download",
           "can_download": 1
         }
-      ]
+      ],
+      "content_type": "post"
     },
     {
       "id": "045aeef8-5f56-43ac-b64b-1cc8e2a8bb80",
@@ -81,7 +82,8 @@
           "download_url": "https://drive.google.com/uc?id=16VIkAoRbxnZc9wH8ayH20EMFol6ZpTrU&export=download",
           "can_download": 1
         }
-      ]
+      ],
+      "content_type": "post"
     },
     {
       "id": "87b52a17-954f-4d28-87a1-d1c523e26f63",
@@ -120,7 +122,8 @@
           "download_url": "https://drive.google.com/uc?id=1Ekjtsi-mdZToBc3EzOSmCtKtvl3EZJ5l&export=download",
           "can_download": 1
         }
-      ]
+      ],
+      "content_type": "post"
     }
   ]
 }

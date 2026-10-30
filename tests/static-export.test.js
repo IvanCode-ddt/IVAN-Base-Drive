@@ -61,7 +61,7 @@ test('exported snapshot and assets serve beneath /IVAN-Base-Drive/ without any b
   const posts=await source.list();
   // Verify whatever is currently exported; Vencord is checked explicitly in the task report.
   for(const post of posts){assert.equal((await source.get(post.slug)).title,post.title);assert.ok(detailHTML(post).includes(post.title.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')));}
-  for(const file of ['','css/style.css','js/main.js','js/content.js','js/data.js','js/post-source.js','js/media.js','js/markdown.js','content/posts.json'])assert.equal((await fetch(`${origin}/IVAN-Base-Drive/${file}`)).status,200,file);
+  for(const file of ['','css/style.css','js/main.js','js/content.js','js/data.js','js/post-source.js','js/media.js','js/markdown.js','js/music-content.js','js/music-player.js','content/posts.json','content/music.json'])assert.equal((await fetch(`${origin}/IVAN-Base-Drive/${file}`)).status,200,file);
   assert.equal((await fetch(`${origin}/api/posts`)).status,404);
  }finally{await new Promise(resolve=>server.close(resolve));}
 });

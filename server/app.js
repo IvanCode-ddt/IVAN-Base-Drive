@@ -18,6 +18,7 @@ import {runtimeIdentity} from './local-runtime.js';
 import {validateLocalRuntime,localRequestAllowed} from './local-admin.js';
 import {hasGoogleAdminSession,ADMIN_SESSION_MS} from './google-session.js';
 import {FeedbackError,registerFeedbackRoutes} from './feedback.js';
+import { registerMusicRoutes } from './music.js';
 const root = fileURLToPath(new URL('../', import.meta.url));
 const random = () => randomBytes(32).toString('hex');
 const equal = (a,b) => typeof a === 'string' && typeof b === 'string' && Buffer.byteLength(a) === Buffer.byteLength(b) && timingSafeEqual(Buffer.from(a),Buffer.from(b));
@@ -92,21 +93,22 @@ export function createApp({ config, db, oauthClient, driveRequest, feedbackTrans
       res.status(401).send(failure.message);
     }
   });
-  app.get('/api/posts', (req,res) => { res.set('Cache-Control','no-store'); res.json(db.list(true).map(post => db.publicPost(post))); });
+  app.get('/api/posts', (req,res) => { res.set('Cache-Control','no-store'); res.json(db.list(true).map(post => ({...db.publicPost(post),content_type:db.isMusicAlbum(post.id)?'music_album':'post'}))); });
   app.get('/api/highlights',(req,res)=>{
     res.set('Cache-Control','no-store');
     const config=db.highlightConfig({publicOnly:true});
-    res.json({...config,slides:config.slides.map(slide=>({...slide,post:db.publicPost(db.get(slide.post_id))})).filter(slide=>slide.post)});
+    res.json({...config,slides:config.slides.map(slide=>{const post=db.get(slide.post_id),value=db.publicPost(post);return{...slide,post:value?{...value,content_type:db.isMusicAlbum(post.id)?'music_album':'post'}:null};}).filter(slide=>slide.post)});
   });
   app.get('/api/site-settings',(req,res)=>res.set('Cache-Control','no-store').json({feedbackFormUrl:config.feedbackFormUrl||''}));
-  app.get('/api/posts/:slug', (req,res) => { res.set('Cache-Control','no-store'); const post=db.publicPost(db.published(req.params.slug)); post ? res.json(post) : res.status(404).json({error:'Không tìm thấy bài viết.'}); });
+  app.get('/api/posts/:slug', (req,res) => { res.set('Cache-Control','no-store'); const post=db.published(req.params.slug),value=db.publicPost(post); value ? res.json({...value,content_type:db.isMusicAlbum(post.id)?'music_album':'post'}) : res.status(404).json({error:'Không tìm thấy bài viết.'}); });
   app.use('/api/admin', admin);
+  registerMusicRoutes(app, { db, config, csrf, driveRequest });
   registerFeedbackRoutes(app,{db,config,csrf,transport:feedbackTransport});
   registerPublishRoutes(app,{config,csrf,publisher:publisher||createPublisher({root,databasePath:config.databasePath,adminEmail:config.adminEmail,secrets:[config.clientSecret,config.sessionSecret]})});
   registerMedia(app,{admin,csrf,db,uploadDir});
   registerDriveRoutes(app, {db,config,csrf,driveRequest,revokeToken:token => oauth.revokeToken(token)});
-  app.get('/api/admin/session', (req,res) => res.json({ email:req.session.admin.email, authMode:'google',supportsPinning:true,contentSchemaVersion:12,driveConnected:!!req.session.drive?.access_token&&req.session.drive.expiry_date>Date.now()+10000, csrfToken:req.session.csrf, saveContractVersion:2 }));
-  app.get('/api/admin/posts', (req,res) => res.json(db.list()));
+  app.get('/api/admin/session', (req,res) => res.json({ email:req.session.admin.email, authMode:'google',supportsPinning:true,contentSchemaVersion:13,driveConnected:!!req.session.drive?.access_token&&req.session.drive.expiry_date>Date.now()+10000, csrfToken:req.session.csrf, saveContractVersion:2 }));
+  app.get('/api/admin/posts', (req,res) => res.json(db.list().map(post=>({...post,content_type:db.isMusicAlbum(post.id)?'music_album':'post'}))));
   app.get('/api/admin/highlights',(req,res)=>{
     const config=db.highlightConfig();
     res.json({...config,slides:config.slides.map(slide=>{

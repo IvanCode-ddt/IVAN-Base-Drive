@@ -1,8 +1,8 @@
 import { initEditor } from './editor.js?v=9';
 import { initDrivePicker } from './drive-picker.js?v=9';
-import { detailHTML } from '/js/content.js?v=16';
+import { detailHTML } from '/js/content.js?v=17';
 import {createPostActions} from './actions.js?v=10';
-import {CONTENT_FIELDS,MEDIA_TYPES} from '/js/media.js?v=16';
+import {CONTENT_FIELDS,MEDIA_TYPES} from '/js/media.js?v=17';
 import {createNotifications} from './notifications.js';
 const $=s=>document.querySelector(s),form=$('#post-form');
 const notifications=createNotifications();
@@ -62,6 +62,8 @@ async function api(url,options={}){
 function fill(post=null){
  form.reset();editingId=post?.id||null;currentStatus=post?.status||'draft';
  loadedPost=post;$('#delete-post').hidden=!post;
+ for(const option of form.elements.category.options)if(['film','music'].includes(option.value))option.disabled=!post||option.value!==post.category;
+ if(!post)form.elements.category.value='game';
  if(post)for(const key of Object.keys(post)){const field=form.elements.namedItem(key);if(field)field.value=key==='images'?post.images.join('\n'):post[key];}
  $('#game-requirements').hidden=form.elements.category.value!=='game';
  form.elements.is_pinned.checked=!!post?.is_pinned;
@@ -92,7 +94,7 @@ form.addEventListener('input',()=>{dirty=true;});
 form.addEventListener('submit',async event=>{
  event.preventDefault();const intent=event.submitter?.value||'draft';
  if(form.querySelector('input[type=file]:disabled'))return message('Vui lòng chờ ảnh tải lên xong trước khi lưu hoặc xem trước.',true);
- const body=Object.fromEntries(new FormData(form));body.images=body.images.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);body.status=intent==='preview'?currentStatus:intent;
+ const body=Object.fromEntries(new FormData(form));body.category=form.elements.category.value;body.images=body.images.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);body.status=intent==='preview'?currentStatus:intent;
  body.is_pinned=form.elements.is_pinned.checked;body.pin_order=Number(form.elements.pin_order.value);
  body.install_size=form.elements.install_size.value;
  body.operating_systems=[...form.querySelectorAll('[name="operating_systems"]:checked')].map(checkbox=>checkbox.value);
@@ -123,4 +125,4 @@ form.addEventListener('submit',async event=>{
 $('#new-post').addEventListener('click',()=>{if(dirty&&!confirm('Bỏ các thay đổi chưa lưu?'))return;fill();message('Đang tạo bài viết mới.');});
 $('#logout').addEventListener('click',async()=>{if(dirty&&!confirm('Đăng xuất và bỏ thay đổi chưa lưu?'))return;try{await api('/api/admin/logout',{method:'POST',body:'{}'});dirty=false;location.assign('/login');}catch(error){message(error.message,true);}});
 window.addEventListener('beforeunload',event=>{if(dirty){event.preventDefault();event.returnValue='';}});
-try{const session=await api('/api/admin/session');if(session.saveContractVersion!==2||session.contentSchemaVersion!==12)throw new Error('Backend đang chạy phiên bản cũ. Khởi động lại IVAN Admin rồi tải lại CMS.');csrf=session.csrfToken;$('#admin-email').textContent=session.email;pinPosts=await api('/api/admin/posts');const edit=new URLSearchParams(location.search).get('edit');fill(edit?await api(`/api/admin/posts/${encodeURIComponent(edit)}`):null);form.removeAttribute('inert');}catch(error){message(error.message,true);notifications.error(error.message);}
+try{const session=await api('/api/admin/session');if(session.saveContractVersion!==2||session.contentSchemaVersion!==13)throw new Error('Backend đang chạy phiên bản cũ. Khởi động lại IVAN Admin rồi tải lại CMS.');csrf=session.csrfToken;$('#admin-email').textContent=session.email;pinPosts=await api('/api/admin/posts');const edit=new URLSearchParams(location.search).get('edit');fill(edit?await api(`/api/admin/posts/${encodeURIComponent(edit)}`):null);form.removeAttribute('inert');}catch(error){message(error.message,true);notifications.error(error.message);}

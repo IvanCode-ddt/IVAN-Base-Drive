@@ -30,7 +30,7 @@ test('CMS desktop and mobile: slug, Markdown, upload, draft/edit/publish and Dri
   await mkdir('test-artifacts',{recursive:true});
   for(const[name,viewport]of[['desktop',{width:1440,height:1000}],['mobile',{width:390,height:844}]]){
    const context=await browser.newContext({viewport});const page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
-   await page.goto(config.baseUrl+'/auth/google');await page.locator('#create-post').click();await page.waitForSelector('#post-form:not([inert])');
+   await page.goto(config.baseUrl+'/auth/google');await page.locator('#create-post').click();await page.locator('#create-type-dialog a[href="/admin/editor.html"]').click();await page.waitForSelector('#post-form:not([inert])');
    await page.locator('[name=category]').selectOption('game');await page.locator('#game-requirements summary').click();
    const minimumRequirements='CPU: bất kỳ\n- RAM: 8 GB\nGPU <script>alert(1)</script>',recommendedRequirements='Windows\n• 16 GB RAM';
    await page.locator('#minimum-requirements').fill(minimumRequirements);await page.locator('#recommended-requirements').fill(recommendedRequirements);

@@ -6,6 +6,7 @@ import { randomUUID } from 'node:crypto';
 import { publicPost } from '../server/public-post.js';
 import { localImages, isUploadPath,spotlightImageSet } from '../js/media.js';
 import {publicFormURL,DEFAULT_FEEDBACK_FORM_URL} from '../server/public-settings.js';
+import {publicMusicAlbum} from '../server/music.js';
 
 const projectRoot = fileURLToPath(new URL('../', import.meta.url));
 export function readPublished(filename) {
@@ -14,9 +15,14 @@ export function readPublished(filename) {
   try {
     db.exec('BEGIN');
     const hasTrash=db.prepare('PRAGMA table_info(posts)').all().some(column=>column.name==='deleted_at');
+    const hasMusicAlbums=!!db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='music_albums'").get();
+    const musicIds=new Set(hasMusicAlbums?db.prepare('SELECT post_id FROM music_albums').all().map(row=>row.post_id):[]);
     const posts = db.prepare(`SELECT * FROM posts WHERE status='published' ${hasTrash?'AND deleted_at IS NULL':''} ORDER BY updated_at DESC,id`).all();
     const files = db.prepare('SELECT * FROM post_drive_files WHERE post_id=? AND sharing_confirmed=1 ORDER BY linked_at,file_id');
-    const result = posts.map(post => publicPost({...post, images:JSON.parse(post.images), drive_files:files.all(post.id)}));
+    const result = posts.map(post => {
+      const value=publicPost({...post, images:JSON.parse(post.images), drive_files:files.all(post.id)});
+      return value?{...value,content_type:musicIds.has(post.id)?'music_album':'post'}:null;
+    }).filter(Boolean);
     db.exec('COMMIT'); return result;
   } finally { db.close(); }
 }
@@ -32,6 +38,21 @@ export function readHighlights(filename){
     return{schemaVersion:1,enabled:settings.enabled===1,interval_seconds:settings.interval_seconds,slides};
   }finally{db.close();}
 }
+export function readMusicAlbums(filename){
+  const db=new DatabaseSync(filename,{readOnly:true});
+  try{
+    const table=db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='music_albums'").get();
+    if(!table)return[];
+    const posts=db.prepare("SELECT * FROM posts WHERE status='published' AND deleted_at IS NULL AND id IN(SELECT post_id FROM music_albums) ORDER BY updated_at DESC,id").all();
+    const files=db.prepare('SELECT * FROM post_drive_files WHERE post_id=? ORDER BY linked_at,file_id');
+    const album=db.prepare('SELECT * FROM music_albums WHERE post_id=?');
+    const tracks=db.prepare('SELECT * FROM music_tracks WHERE album_id=? ORDER BY position,id');
+    return posts.map(row=>{
+      const linked=files.all(row.id),post=publicPost({...row,images:JSON.parse(row.images),drive_files:linked});
+      return publicMusicAlbum({...album.get(row.id),post:{...post,drive_files:linked},tracks:tracks.all(row.id)});
+    }).filter(Boolean);
+  }finally{db.close();}
+}
 async function copyImages(source, target) {
   await mkdir(target,{recursive:true});
   for (const entry of await readdir(source,{withFileTypes:true})) {
@@ -42,6 +63,7 @@ async function copyImages(source, target) {
 export async function exportStatic({ databasePath=path.resolve(process.env.DATABASE_PATH || 'data/ivan.sqlite'), outputDir=path.join(projectRoot,'docs'), sourceDir=projectRoot }={}) {
   const posts = readPublished(databasePath);
   const highlights=readHighlights(databasePath);
+  const albums=readMusicAlbums(databasePath);
   const highlightIds=new Set(highlights.slides.map(slide=>slide.post_id));
   const contentDir=path.join(outputDir,'content');
   await mkdir(contentDir,{recursive:true});
@@ -50,7 +72,7 @@ export async function exportStatic({ databasePath=path.resolve(process.env.DATAB
   let html=(await readFile(path.join(sourceDir,'index.html'),'utf8')).replace(/<a\b[^>]*\bdata-local-admin\b[^>]*>.*?<\/a>/g,'').replace('data-feedback-form-url=""',`data-feedback-form-url="${publicFormURL(process.env.FEEDBACK_FORM_URL??DEFAULT_FEEDBACK_FORM_URL)}"`);
   await writeFile(path.join(outputDir,'index.html'),html,'utf8');
   await copyFile(path.join(sourceDir,'css/style.css'),path.join(outputDir,'css/style.css'));
-  for(const file of ['main.js','data.js','content.js','post-source.js','media.js','markdown.js']) await copyFile(path.join(sourceDir,'js',file),path.join(outputDir,'js',file));
+  for(const file of ['main.js','data.js','content.js','post-source.js','media.js','markdown.js','music-content.js','music-player.js']) await copyFile(path.join(sourceDir,'js',file),path.join(outputDir,'js',file));
   const uploads=[...new Set(posts.flatMap(localImages))];
   for(const relative of uploads){
     const from=path.join(sourceDir,relative);
@@ -73,14 +95,17 @@ export async function exportStatic({ databasePath=path.resolve(process.env.DATAB
   await writeFile(path.join(outputDir,'.nojekyll'),'','utf8');
   const temporary=path.join(contentDir,`posts.${randomUUID()}.tmp`);
   const highlightsTemporary=path.join(contentDir,`highlights.${randomUUID()}.tmp`);
+  const musicTemporary=path.join(contentDir,`music.${randomUUID()}.tmp`);
   try {
     await writeFile(temporary,JSON.stringify({schemaVersion:1,posts},null,2)+'\n','utf8');
     await rename(temporary,path.join(contentDir,'posts.json'));
     await writeFile(highlightsTemporary,JSON.stringify(highlights,null,2)+'\n','utf8');
     await rename(highlightsTemporary,path.join(contentDir,'highlights.json'));
+    await writeFile(musicTemporary,JSON.stringify({schemaVersion:1,albums},null,2)+'\n','utf8');
+    await rename(musicTemporary,path.join(contentDir,'music.json'));
     const uploaded=await readdir(path.join(outputDir,'uploads')).catch(error=>{if(error.code==='ENOENT')return[];throw error;});
     for(const name of uploaded)if(isUploadPath(`uploads/${name}`)&&!uploads.includes(`uploads/${name}`))await rm(path.join(outputDir,'uploads',name));
-  } finally { await rm(temporary,{force:true});await rm(highlightsTemporary,{force:true}); }
+  } finally { await rm(temporary,{force:true});await rm(highlightsTemporary,{force:true});await rm(musicTemporary,{force:true}); }
   return { count:posts.length, outputDir };
 }
 if(process.argv[1] && import.meta.url===pathToFileURL(process.argv[1]).href) {
