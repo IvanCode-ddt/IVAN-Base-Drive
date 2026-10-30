@@ -3,8 +3,29 @@ import { cover,detailHTML,escapeHTML,categoryName } from './content.js?v=9';
 import { createPostSource } from './post-source.js?v=9';
 const source=createPostSource();
 const $=s=>document.querySelector(s);
+// Public entry point only. Nothing is hidden while JS/observers are unavailable.
+const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)');
+const ambientViewport=matchMedia('(min-width:1024px) and (hover:hover) and (pointer:fine)');
+const weakDevice=(navigator.hardwareConcurrency&&navigator.hardwareConcurrency<=4)||(navigator.deviceMemory&&navigator.deviceMemory<=4)||navigator.connection?.saveData;
+const entrances=new Set();
+function syncMotion(){
+ document.body.classList.toggle('ambient-motion',ambientViewport.matches&&!reducedMotion.matches&&!weakDevice);
+ document.body.classList.toggle('motion-paused',document.hidden);
+ if(reducedMotion.matches||document.hidden)for(const animation of entrances)animation.cancel();
+}
+function enter(node,distance=8){
+ if(!node?.animate||reducedMotion.matches||document.hidden||weakDevice)return;
+ const animation=node.animate([{opacity:.92,transform:`translate3d(0,${distance}px,0)`},{opacity:1,transform:'translate3d(0,0,0)'}],{duration:230,easing:'cubic-bezier(.22,.7,.25,1)'});
+ entrances.add(animation);animation.finished.then(()=>entrances.delete(animation),()=>entrances.delete(animation));
+}
+reducedMotion.addEventListener?.('change',syncMotion);ambientViewport.addEventListener?.('change',syncMotion);
+document.addEventListener('visibilitychange',syncMotion);syncMotion();
 let posts=[],category='all',libraryScroll=0,routeVersion=0;
-function renderFilters(){ $('#category-filters').innerHTML=[{id:'all',name:'Tất cả'},...CATEGORIES].map(c=>`<button class="filter" data-category="${c.id}" aria-pressed="${category===c.id}">${c.name}</button>`).join(''); }
+function renderFilters(){
+ const filters=$('#category-filters');
+ if(!filters.children.length)filters.innerHTML=[{id:'all',name:'Tất cả'},...CATEGORIES].map(c=>`<button class="filter" data-category="${c.id}">${c.name}</button>`).join('');
+ for(const button of filters.children)button.setAttribute('aria-pressed',String(button.dataset.category===category));
+}
 function renderPosts(){
  const list=filterPosts(posts,$('#search-input').value,category);
  $('#result-count').textContent=`${list.length} bài viết`;
@@ -24,6 +45,7 @@ async function route(){
   try{
    const p=await source.get(decodeURIComponent(hash.slice(6)));if(version!==routeVersion)return;
    detail.innerHTML=`<a class="back-link" href="#collection">← Trở về thư viện</a>${detailHTML(p)}`;
+   enter(detail.querySelector('.detail-header'));
    document.title=`${p.title} — IVAN Base Drive`;window.scrollTo(0,0);detail.querySelector('h1').focus({preventScroll:true});
   }catch(error){if(version===routeVersion)detail.innerHTML=`<a class="back-link" href="#collection">← Trở về thư viện</a><p role="alert">${escapeHTML(error.message)}</p>`;}
  }else{
@@ -55,4 +77,4 @@ $('#feedback-open').addEventListener('click',async()=>{
 });
 $('#feedback-close').addEventListener('click',()=>{$('#feedback-dialog').close();$('#feedback-frame').replaceChildren();});
 $('#feedback-dialog').addEventListener('close',()=>$('#feedback-frame').replaceChildren());
-window.addEventListener('hashchange',route);renderFilters();load();route();
+window.addEventListener('hashchange',route);renderFilters();load();route();enter($('.hero-copy'),6);

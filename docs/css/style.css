@@ -10,3 +10,44 @@
 #feedback-frame iframe{display:block;border:0;width:100%;height:min(65vh,800px);background:#fff;margin-top:18px;border-radius:12px}
 #feedback-dialog p{line-height:1.7}
 @media(max-width:600px){.header-inner{height:auto;min-height:80px;flex-wrap:wrap;gap:14px;padding-top:16px;padding-bottom:16px}.header-inner nav{flex-wrap:wrap;gap:12px}#feedback-open{padding:9px 12px}}
+/* Public motion only: Admin shares this file but never has .public-site. */
+.public-site{isolation:isolate}
+.public-site::before,.public-site::after{content:"";position:fixed;pointer-events:none;z-index:-1;aspect-ratio:1;border-radius:50%}
+.public-site::before{width:min(70vw,360px);left:0;top:8vh;background:radial-gradient(ellipse at center,#9dbd7717,#9dbd7706 44%,transparent 68%)}
+.public-site::after{width:min(65vw,320px);right:0;top:58vh;background:radial-gradient(ellipse at center,#8b8dbb14,#8b8dbb05 44%,transparent 68%)}
+.public-site.ambient-motion::before{animation:ivan-ambient-a 46s ease-in-out infinite alternate}
+.public-site.ambient-motion::after{animation:ivan-ambient-b 58s ease-in-out infinite alternate}
+.public-site.motion-paused::before,.public-site.motion-paused::after{animation-play-state:paused}
+@keyframes ivan-ambient-a{to{transform:translate3d(26px,20px,0)}}
+@keyframes ivan-ambient-b{to{transform:translate3d(-24px,-16px,0)}}
+.public-site :is(.primary-button,.secondary-button,.filter){transition:transform 180ms cubic-bezier(.2,.7,.3,1),background-color 160ms ease,border-color 160ms ease,color 160ms ease}
+.public-site :is(.primary-button,.secondary-button,.filter):not(:disabled):active{transform:scale(.975);transition-duration:90ms}
+.public-site .post-card{transition:transform 240ms cubic-bezier(.2,.7,.3,1),border-color 180ms ease}
+.public-site .post-card:hover{transform:none;border-color:var(--line)}
+.public-site .post-card .real-cover{transition:transform 350ms cubic-bezier(.2,.7,.3,1)}
+.public-site .filter:hover:not([aria-pressed=true]){background:transparent;color:var(--muted)}
+.public-site .post-card:focus-visible{border-color:var(--accent)}
+.public-site .search{transition:border-color 180ms ease,background-color 180ms ease}
+.public-site .search:focus-within{background-color:#1d2425;outline:2px solid #c8f47755;outline-offset:3px}
+@media(hover:hover) and (pointer:fine){
+ .public-site :is(.primary-button,.secondary-button):not(:disabled):hover{transform:translateY(-1px)}
+ .public-site .post-card:hover{transform:translateY(-4px);border-color:#65764e}
+ .public-site .post-card:hover .real-cover{transform:scale(1.025)}
+ .public-site .post-card:active{transform:translateY(-1px) scale(.99)}
+ .public-site .filter:hover:not([aria-pressed=true]){background:#22292d;color:var(--text)}
+}
+/* Native dialog state/focus changes immediately; discrete transitions are progressive enhancement. */
+.public-site #feedback-dialog{opacity:0;transform:translateY(10px) scale(.985);transition:opacity 180ms ease,transform 220ms cubic-bezier(.2,.7,.3,1),display 220ms allow-discrete,overlay 220ms allow-discrete}
+.public-site #feedback-dialog[open]{opacity:1;transform:none}
+.public-site #feedback-dialog::backdrop{opacity:0;transition:opacity 180ms ease,display 220ms allow-discrete,overlay 220ms allow-discrete}
+.public-site #feedback-dialog[open]::backdrop{opacity:1}
+@starting-style{
+ .public-site #feedback-dialog[open]{opacity:0;transform:translateY(10px) scale(.985)}
+ .public-site #feedback-dialog[open]::backdrop{opacity:0}
+}
+@media(prefers-reduced-motion:reduce){
+ .public-site::before,.public-site::after{animation:none!important}
+ .public-site *,.public-site *::before,.public-site *::after{transition:none!important;animation:none!important}
+ .public-site .post-card:hover,.public-site .post-card:hover .real-cover,.public-site :is(.primary-button,.secondary-button,.filter):hover,.public-site :is(.primary-button,.secondary-button,.filter):active,.public-site #feedback-dialog{transform:none!important}
+}
+@media(prefers-contrast:more){.public-site::before,.public-site::after{display:none}}
