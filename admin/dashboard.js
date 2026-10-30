@@ -29,10 +29,6 @@ window.addEventListener('hashchange',route);route();
 $('#dashboard-logout').addEventListener('click',async()=>{await api('/api/admin/logout',{method:'POST',body:'{}'});location.assign('/login');});
 try{
  const session=await api('/api/admin/session');csrf=session.csrfToken;$('#dashboard-email').textContent=session.email;
- if(session.authMode==='local'){
-   $('#dashboard-email').textContent=`Quản trị local · Drive: ${session.driveConnected?'đã kết nối':'chưa kết nối'}`;
-   $('#dashboard-logout').textContent='Ngắt phiên Google';
- }
  initPublishUI({api});
  $('#post-category').innerHTML='<option value="">Tất cả danh mục</option>'+CATEGORIES.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
  await load();const settings=await api('/api/admin/settings');$('#settings-info').textContent=`Tài khoản: ${settings.email}\nThư mục Drive: ${settings.driveRootId||'Mặc định'}\nXuất bản: ${settings.exportCommand}\nQuản trị và OAuth chạy local. Trang này không hiển thị secret/token.`;

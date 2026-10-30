@@ -143,6 +143,10 @@ try {
   $changed += @(Paths (Git @('ls-files','--others','--exclude-standard','-z')))
   $changed = @($changed | Sort-Object -Unique)
   $approved = @($changed | Where-Object { Allowed $_ })
+  if (@($approved | Where-Object { $_ -match '^server/|^package(-lock)?\.json$|^scripts/launch-admin\.mjs$|^IVAN-Admin\.cmd$' }).Count) {
+    Write-Host 'Có thay đổi backend/launcher. Nếu Admin đang chạy, hãy khởi động lại thủ công bằng Ctrl+C rồi IVAN-Admin.cmd sau khi cập nhật.'
+    Write-Host 'Updater không tắt/khởi động server, không đổi session và không chạy Google OAuth.'
+  }
   $skipped = @($changed | Where-Object { !(Allowed $_) })
   if ($skipped.Count) { Write-Host "`nKHÔNG đưa vào commit (ngoài danh sách cho phép):"; $skipped | ForEach-Object { Write-Host "  BỎ QUA  $_" } }
   if (!$approved.Count) { Write-Host 'Không có thay đổi code/docs hợp lệ để cập nhật.'; exit 0 }

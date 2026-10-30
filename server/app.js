@@ -15,17 +15,18 @@ import {createPublisher} from './publisher.js';
 import {registerPublishRoutes} from './publish-routes.js';
 import {PublishError} from './publish-git.js';
 import {runtimeIdentity} from './local-runtime.js';
-import {validateLocalMode,localRequestAllowed} from './local-admin.js';
+import {validateLocalRuntime,localRequestAllowed} from './local-admin.js';
+import {hasGoogleAdminSession,ADMIN_SESSION_MS} from './google-session.js';
 const root = fileURLToPath(new URL('../', import.meta.url));
 const random = () => randomBytes(32).toString('hex');
 const equal = (a,b) => typeof a === 'string' && typeof b === 'string' && Buffer.byteLength(a) === Buffer.byteLength(b) && timingSafeEqual(Buffer.from(a),Buffer.from(b));
-export function createApp({ config, db, oauthClient, driveRequest, uploadDir=path.join(root,'uploads'), publisher }) {
-  validateLocalMode(config);
+export function createApp({ config, db, oauthClient, driveRequest, uploadDir=path.join(root,'uploads'), publisher, sessionStore, now=Date.now }) {
+  validateLocalRuntime(config);
   const app = express();
   const oauth = oauthClient || new OAuth2Client(config.clientId, config.clientSecret, config.redirectUri);
   app.disable('x-powered-by');
-  if(config.localAdminMode)app.use((req,res,next)=>localRequestAllowed(req,config)?next():res.status(403).json({error:'Chỉ cho phép truy cập trực tiếp từ máy local, đúng Host và Origin.',code:'LOCAL_ONLY'}));
-  app.get('/api/local/ready',(req,res)=>res.set('Cache-Control','no-store').json({...runtimeIdentity,localAdminMode:!!config.localAdminMode}));
+  app.use((req,res,next)=>localRequestAllowed(req,config)?next():res.status(403).json({error:'Chỉ cho phép truy cập trực tiếp từ máy local, đúng Host và Origin.',code:'LOCAL_ONLY'}));
+  app.get('/api/local/ready',(req,res)=>res.set('Cache-Control','no-store').json(runtimeIdentity));
   // Keep OAuth cookies and CSRF on the configured origin when the desktop opens 127.0.0.1.
   app.use((req,res,next)=>{
     const base=new URL(config.baseUrl);
@@ -37,10 +38,9 @@ export function createApp({ config, db, oauthClient, driveRequest, uploadDir=pat
   });
   app.use(helmet({ contentSecurityPolicy: { directives: { 'img-src': ["'self'", 'https:'], 'media-src': ["'self'", 'https:'], 'style-src': ["'self'", "'unsafe-inline'"], 'script-src': ["'self'"], 'upgrade-insecure-requests': config.secure ? [] : null } }, strictTransportSecurity: config.secure ? undefined : false }));
   app.use(express.json({ limit: '150kb' }));
-  app.use(session({ name:'ivan.sid', secret:config.sessionSecret, resave:false, saveUninitialized:false, cookie:{ httpOnly:true, secure:config.secure, sameSite:'lax', maxAge:8*60*60*1000 } }));
+  app.use(session({ name:'ivan.sid', secret:config.sessionSecret, store:sessionStore, resave:false, saveUninitialized:false, cookie:{ httpOnly:true, secure:config.secure, sameSite:'lax', maxAge:ADMIN_SESSION_MS } }));
   const admin = (req,res,next) => {
-    if(config.localAdminMode){req.session.localAdmin=true;req.session.csrf ||= random();return next();}
-    if (req.session.admin?.email === config.adminEmail) return next();
+    if (hasGoogleAdminSession(req.session,config,now())) return next();
     if (req.originalUrl.startsWith('/api/')) return res.status(401).json({ error:'Cần đăng nhập quản trị.' });
     return res.redirect('/login');
   };
@@ -50,7 +50,7 @@ export function createApp({ config, db, oauthClient, driveRequest, uploadDir=pat
   };
   app.use(['/admin','/api/admin','/auth','/login'], (req,res,next) => { res.set('Cache-Control','no-store'); next(); });
   const authLimiter = rateLimit({ windowMs:15*60*1000, limit:30, standardHeaders:'draft-8', legacyHeaders:false });
-  app.get('/login', (req,res) => config.localAdminMode?res.redirect('/admin'):res.sendFile(path.join(root,'admin/login.html')));
+  app.get('/login', (req,res) => res.sendFile(path.join(root,'admin/login.html')));
   app.get('/auth/google', authLimiter, async (req,res,next) => {
     try {
       req.session.oauth = { state:random(), nonce:random(), verifier:random(), created:Date.now() };
@@ -72,7 +72,7 @@ export function createApp({ config, db, oauthClient, driveRequest, uploadDir=pat
       if (!identity || identity.nonce !== pending.nonce || identity.email_verified !== true || identity.email?.toLowerCase() !== config.adminEmail || !identity.sub) return res.status(403).send('Tài khoản này không có quyền quản trị.');
       stage = 'session';
       await new Promise((resolve,reject) => req.session.regenerate(error => error ? reject(error) : resolve()));
-      req.session.admin = { email:config.adminEmail, sub:identity.sub };
+      req.session.admin = { provider:'google',email:config.adminEmail,sub:identity.sub,expiresAt:now()+ADMIN_SESSION_MS };
       req.session.csrf = random();
       // Store only short-lived access credentials in the server's memory session.
       // Never store an ID token or a refresh token, even if Google returns one.
@@ -83,7 +83,7 @@ export function createApp({ config, db, oauthClient, driveRequest, uploadDir=pat
       // A 302 keeps the Google redirect chain cross-site, so the local guard would
       // reject /admin. Commit a local document first; its navigation is same-origin.
       // Static markup only: never include OAuth query parameters or credentials.
-      if(config.localAdminMode)return res.type('html').send('<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="referrer" content="no-referrer"><meta http-equiv="refresh" content="0;url=/admin"><title>Đã kết nối Google Drive</title></head><body><p>Đã kết nối Google Drive. <a href="/admin">Mở Dashboard</a></p></body></html>');
+      if(req.get('sec-fetch-site')==='cross-site'||(req.get('origin')&&req.get('origin')!==config.baseUrl))return res.type('html').send('<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="referrer" content="no-referrer"><meta http-equiv="refresh" content="0;url=/admin"><title>Đăng nhập Google thành công</title></head><body><p>Đã xác thực Google. <a href="/admin">Mở Dashboard</a></p></body></html>');
       res.redirect('/admin');
     } catch(error) {
       const failure = oauthFailure(error, stage);
@@ -97,7 +97,7 @@ export function createApp({ config, db, oauthClient, driveRequest, uploadDir=pat
   registerPublishRoutes(app,{config,csrf,publisher:publisher||createPublisher({root,databasePath:config.databasePath,adminEmail:config.adminEmail,secrets:[config.clientSecret,config.sessionSecret]})});
   registerMedia(app,{admin,csrf,db,uploadDir});
   registerDriveRoutes(app, {db,config,csrf,driveRequest,revokeToken:token => oauth.revokeToken(token)});
-  app.get('/api/admin/session', (req,res) => res.json({ email:config.localAdminMode?'Quản trị local':req.session.admin.email, authMode:config.localAdminMode?'local':'google',driveConnected:!!req.session.drive?.access_token&&req.session.drive.expiry_date>Date.now()+10000, csrfToken:req.session.csrf, saveContractVersion:2 }));
+  app.get('/api/admin/session', (req,res) => res.json({ email:req.session.admin.email, authMode:'google',driveConnected:!!req.session.drive?.access_token&&req.session.drive.expiry_date>Date.now()+10000, csrfToken:req.session.csrf, saveContractVersion:2 }));
   app.get('/api/admin/posts', (req,res) => res.json(db.list()));
   app.get('/api/admin/trash',(req,res)=>res.json(db.trash()));
   app.get('/api/admin/settings',(req,res)=>res.json({email:config.adminEmail,driveRootId:config.driveRootId,exportCommand:'npm.cmd run export',postCount:db.list().length,trashCount:db.trash().length}));

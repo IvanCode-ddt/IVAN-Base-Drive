@@ -43,6 +43,14 @@ test('launcher: wrong HTTP application is occupied; errors and timeout do not op
   await assert.rejects(launch({inspect:async()=> 'stopped',check:async()=>{},start:()=>child,open:()=>assert.fail(),delay:async()=>{},attempts:2}),/thời gian chờ/);
   assert.equal(killed,true);
 });
+test('launcher refuses a running legacy/bypass server without starting or killing it',async t=>{
+ const server=http.createServer((req,res)=>res.end(JSON.stringify({...runtimeIdentity,authMode:'local',launcherVersion:3})));
+ server.listen(0,'127.0.0.1');await once(server,'listening');t.after(()=>server.close());
+ const inspect=()=>probe(server.address().port);
+ assert.equal(await inspect(),'occupied');
+ await assert.rejects(launch({inspect,start:()=>assert.fail('must not start second server'),open:()=>assert.fail('must not open bypass admin'),check:()=>assert.fail()}),/phiên bản IVAN cũ/);
+ assert.equal(server.listening,true);
+});
 test('127.0.0.1 entry redirects to existing OAuth origin; health contains no private config',async t=>{
   const db=openDatabase(':memory:');t.after(()=>db.close());
   const config={baseUrl:'http://localhost:3000',adminEmail:'private@example.com',clientId:'test',clientSecret:'secret',sessionSecret:'x'.repeat(40),redirectUri:'http://localhost:3000/auth/google/callback'};
@@ -50,7 +58,7 @@ test('127.0.0.1 entry redirects to existing OAuth origin; health contains no pri
   await request(app).get('/admin').set('Host','127.0.0.1:3000').expect(302).expect('Location','http://localhost:3000/admin');
   await request(app).post('/api/admin/posts').set('Host','127.0.0.1:3000').expect(403);
   const health=await request(app).get('/api/local/ready').expect(200);
-  assert.deepEqual(health.body,{...runtimeIdentity,localAdminMode:false});assert.ok(!health.text.includes(config.adminEmail));
+  assert.deepEqual(health.body,runtimeIdentity);assert.ok(!health.text.includes(config.adminEmail));
 });
 test('actual Express entry starts only on IPv4 loopback and stops without touching real SQLite',async t=>{
   const directory=await mkdtemp(path.join(tmpdir(),'ivan-launch-'));
@@ -63,6 +71,6 @@ test('actual Express entry starts only on IPv4 loopback and stops without touchi
   assert.equal(await probe(port),'ready');assert.match(output,/127\.0\.0\.1/);
   const admin=await fetch(`http://127.0.0.1:${port}/admin`,{redirect:'manual'});
   assert.equal(admin.headers.get('location'),`http://localhost:${port}/admin`);
-  assert.equal(await probe(port,true),'occupied'); // Google-only server must not be silently reused by the local launcher.
+  assert.equal(await probe(port),'ready'); // Readiness is independent of the unauthenticated /admin -> /login redirect.
   child.kill('SIGTERM');await exited;assert.equal(await probe(port),'stopped');
 });

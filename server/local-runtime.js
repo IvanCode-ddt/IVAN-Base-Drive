@@ -1,4 +1,4 @@
 import {createHash} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
 export const projectId=createHash('sha256').update(fileURLToPath(new URL('../',import.meta.url)).toLowerCase()).digest('hex');
-export const runtimeIdentity={app:'ivan-base-drive',launcherVersion:3,projectId};
+export const runtimeIdentity={app:'ivan-base-drive',launcherVersion:4,authMode:'google',projectId};

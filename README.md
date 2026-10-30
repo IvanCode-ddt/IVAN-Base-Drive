@@ -1,5 +1,11 @@
 # IVAN Base Drive — Giai đoạn 3B
 
+## Giai đoạn 6 — Google Admin bắt buộc, vận hành local
+
+Mở `IVAN-Admin.cmd` → `/admin` → đăng nhập Google đúng `ADMIN_EMAIL`. `LOCAL_ADMIN_MODE` đã bị loại khỏi đường cấp quyền; đặt true cũng không bỏ được đăng nhập. Server vẫn chỉ bind `127.0.0.1`; session Google hết hạn hoặc logout phải đăng nhập lại. Callback Google giữ xử lý chống lỗi LOCAL_ONLY.
+
+`Update-IVAN-Code.cmd` vẫn export và cập nhật source/docs sau khi xem danh sách và nhấn Y, độc lập với phiên Google. Nó không tắt/khởi động server, không đổi session hoặc credential; chỉ nhắc restart thủ công nếu backend thay đổi. Hướng dẫn đầy đủ: [WINDOWS-ADMIN.md](WINDOWS-ADMIN.md).
+
 ## Giai đoạn 5A — Đăng cập nhật GitHub Pages từ Admin
 
 Chạy server bằng `npm.cmd start`, đăng nhập tại `http://localhost:3000/admin/`. Khu vực **Xuất bản website** được bổ sung gọn phía trên danh sách bài viết. Không có thao tác Git tự động khi chỉ lưu nháp hoặc xuất bản một bài.

@@ -3,7 +3,7 @@ import {createConnection} from 'node:net';
 import {fileURLToPath,pathToFileURL} from 'node:url';
 import {runtimeIdentity} from '../server/local-runtime.js';
 const root=fileURLToPath(new URL('../',import.meta.url));
-export async function probe(port=3000,requireLocal=false){
+export async function probe(port=3000){
   const occupied=await new Promise(resolve=>{
     const socket=createConnection({host:'127.0.0.1',port});
     socket.setTimeout(800);socket.once('connect',()=>{socket.destroy();resolve(true);});
@@ -13,7 +13,7 @@ export async function probe(port=3000,requireLocal=false){
   try{
     const response=await fetch(`http://127.0.0.1:${port}/api/local/ready`,{signal:AbortSignal.timeout(1500),redirect:'error'});
     const body=await response.json();
-    if(response.ok&&Object.keys(runtimeIdentity).every(key=>body[key]===runtimeIdentity[key])&&(!requireLocal||body.localAdminMode===true))return 'ready';
+    if(response.ok&&Object.keys(runtimeIdentity).every(key=>body[key]===runtimeIdentity[key]))return 'ready';
   }catch{}
   return 'occupied';
 }
@@ -40,12 +40,12 @@ async function main(){
   process.on('SIGINT',stop);process.on('SIGTERM',stop);
   try{
     const result=await launch({
-      inspect:()=>probe(3000,true),
+      inspect:()=>probe(3000),
       check:async()=>{
         try{for(const name of ['express','express-session','express-rate-limit','google-auth-library','helmet','sharp'])await import(name);}
         catch{throw new Error('Dependencies thiếu hoặc không dùng được. Chạy npm.cmd ci trong thư mục dự án rồi mở lại launcher.');}
       },
-      start:()=>{console.log('Đang khởi động quản trị local. Giữ cửa sổ này mở; nhấn Ctrl+C để tắt Admin.');return server=spawn(process.execPath,['--env-file-if-exists=.env','server/index.js'],{cwd:root,stdio:'inherit',shell:false,env:{...process.env,LOCAL_ADMIN_MODE:'true'}});},
+      start:()=>{console.log('Đang khởi động Admin local; cần đăng nhập Google. Giữ cửa sổ này mở; nhấn Ctrl+C để tắt.');return server=spawn(process.execPath,['--env-file-if-exists=.env','server/index.js'],{cwd:root,stdio:'inherit',shell:false});},
       open:()=>new Promise((resolve,reject)=>{
         const browser=spawn('powershell.exe',['-NoProfile','-NonInteractive','-Command',"Start-Process 'http://127.0.0.1:3000/admin'"],{windowsHide:true,stdio:'inherit',shell:false});
         browser.once('error',reject);browser.once('exit',code=>code===0?resolve():reject(new Error('Không mở được trình duyệt. Mở http://127.0.0.1:3000/admin bằng tay.')));

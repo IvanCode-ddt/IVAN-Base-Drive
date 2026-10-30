@@ -8,11 +8,11 @@
 
 ## Mở và tắt
 
-Launcher tự bật `LOCAL_ADMIN_MODE=true` riêng cho tiến trình Node: vào Dashboard trực tiếp, không cần đăng nhập Google để quản lý bài viết. Không sửa `.env`. Tắt server cũ trước lần mở launcher sau khi nâng cấp; launcher không tái sử dụng server đang chạy chế độ Google Admin.
+Từ Giai đoạn 6, Admin bắt buộc đăng nhập Google khớp ADMIN_EMAIL trước khi vào Dashboard. `LOCAL_ADMIN_MODE` đã ngừng hoạt động, kể cả khi `.env` hoặc môi trường Windows còn đặt giá trị true; không cần sửa thông tin bí mật để nâng cấp. Tắt server bản cũ bằng Ctrl+C rồi mở lại launcher một lần sau khi cập nhật.
 
-Quyền quản trị local và kết nối Drive độc lập. Trong Kho Google Drive, chọn kết nối Google khi cần đọc/đồng bộ file. Vẫn chỉ tài khoản ADMIN_EMAIL được kết nối; token chỉ tồn tại trong phiên phía server. Ngắt kết nối hoặc hết hạn token Drive không làm mất quyền quản trị local. Không cần kết nối Google chỉ để tạo bài không gắn file Drive.
+Quyền Admin chỉ được cấp sau khi backend xác minh ID token Google, email đã xác minh, nonce, subject và ADMIN_EMAIL. Session hết hạn sau tối đa 8 giờ; logout hủy session phía server. Session cũ từ bypass hoặc chỉ có trường email không được chấp nhận. Khởi động lại server cũng làm mất session bộ nhớ, cần đăng nhập lại.
 
-Để dùng lại đăng nhập Google Admin, tắt launcher rồi chạy `npm.cmd start` với LOCAL_ADMIN_MODE tắt/không đặt. Biến được launcher đặt cho tiến trình con, không thay đổi môi trường Windows. Chế độ local bị từ chối nếu NODE_ENV=production hoặc BASE_URL ngoài HTTP localhost/127.0.0.1. Host/Origin sai, proxy và địa chỉ LAN đều bị chặn; API ghi vẫn cần CSRF.
+Google Drive tiếp tục dùng OAuth và scope metadata hiện tại. Access token chỉ ở session server, có thể hết hạn trước session Admin. Khi đó kết nối lại Google trong Kho Drive. Ngắt Drive không hủy quyền Admin đã xác thực; logout hủy cả phiên. Không có cơ chế bỏ đăng nhập trong production. Origin ngoài HTTP localhost/127.0.0.1, Host lạ, proxy và LAN bị chặn; API ghi và Git publish vẫn cần CSRF.
 
 Nhấp đúp **IVAN-Admin.cmd**. Launcher tự chuyển về thư mục dự án, kiểm tra Node/dependencies, chạy Node với `.env` giống `npm.cmd start` (không watch), chờ HTTP sẵn sàng rồi mở `http://127.0.0.1:3000/admin` bằng trình duyệt mặc định.
 
@@ -31,6 +31,15 @@ Nếu cổng 3000 là ứng dụng khác, bản IVAN cũ chưa có kiểm tra re
 Nếu menu Send to không có: Desktop → New → Shortcut → Browse → chọn `IVAN-Admin.cmd`. Launcher tự xác định thư mục, không phụ thuộc mục “Start in”. Khi chuyển thư mục dự án, tạo lại shortcut.
 
 ## Đăng cập nhật website
+
+### Phân biệt hai CMD
+
+- **IVAN-Admin.cmd**: chỉ khởi động/tái sử dụng server và mở Admin. Endpoint readiness độc lập với OAuth; `/admin` trả 302 về trang login là bình thường. Launcher không commit/push và không nhận server bypass cũ là server hợp lệ; không tự kill server cũ.
+- **Update-IVAN-Code.cmd**: chỉ export dữ liệu công khai, kiểm tra/lọc file, cho xem trước và chờ Y trước commit/push. Hoạt động độc lập với đăng nhập Google, không mở port/server, không đọc/thay đổi session hay OAuth. Admin có thể tiếp tục chạy khi updater làm việc. Nếu danh sách có backend/launcher/package thay đổi, updater nhắc khởi động lại thủ công; không tự tắt Admin. Nhấn N hủy commit/push, bản export vẫn giữ local.
+
+Git publish trong Admin và updater đều kiểm tra trạng thái Git; tránh bấm đăng website đồng thời trong hai công cụ. Nếu Git đang có thay đổi đã stage, remote mới hơn hoặc conflict, xử lý thủ công theo thông báo; không force push/reset.
+
+### Nút đăng trong Admin
 
 Đăng nhập Google trong Admin → **Xuất bản website** → **Đăng cập nhật lên website**. Kiểm tra bản xem trước và danh sách thay đổi; đánh dấu xác nhận rồi bấm nút đăng cuối cùng. Lưu nháp/xuất bản một bài chỉ cập nhật dữ liệu local, không tự push.
 

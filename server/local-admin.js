@@ -1,11 +1,13 @@
-export function validateLocalMode(config){
-  if(!config.localAdminMode)return;
+export function validateLocalRuntime(config){
   const base=new URL(config.baseUrl);
-  if(config.nodeEnv==='production'||process.env.NODE_ENV==='production'||base.protocol!=='http:'||!['localhost','127.0.0.1'].includes(base.hostname))throw new Error('LOCAL_ADMIN_MODE chỉ được dùng với HTTP loopback và không được bật trong production.');
+  if(base.protocol!=='http:'||!['localhost','127.0.0.1'].includes(base.hostname))throw new Error('Admin chỉ chạy trên HTTP localhost/127.0.0.1; không hỗ trợ origin LAN hoặc Internet.');
 }
 export function localRequestAllowed(req,config){
   const base=new URL(config.baseUrl);
-  const hosts=[`localhost:${base.port||80}`,`127.0.0.1:${base.port||80}`];
+  // Both configured origin and actual loopback listener are valid (tests may use an
+  // ephemeral listener); the shipped entry point always binds 127.0.0.1:config.port.
+  const ports=[base.port||'80',req.socket.localPort].filter(Boolean);
+  const hosts=ports.flatMap(port=>[`localhost:${port}`,`127.0.0.1:${port}`]);
   const oauthCallback=req.method==='GET'&&req.path==='/auth/google/callback';
   return ['127.0.0.1','::ffff:127.0.0.1'].includes(req.socket.remoteAddress)
     &&hosts.includes(req.get('host')?.toLowerCase())
