@@ -71,12 +71,13 @@ test('album API requires OAuth, creates/reorders/edits tracks with stable IDs, a
   const publicPosts=(await request(app).get('/api/posts').expect(200)).body;
   assert.equal(publicPosts.find(post=>post.id===legacy.id).content_type,'post');assert.equal(publicPosts.find(post=>post.id===created.post_id).content_type,'music_album');
   assert.equal((await agent.get('/api/admin/music/albums').expect(200)).body.length,1);
-  const invalid=albumBody();invalid.album.tracks[0].direct_url='javascript:alert(1)';
-  await write(agent,'post','/api/admin/music/albums',csrf,invalid).expect(400);
+  const invalid=albumBody();invalid.post={...invalid.post,slug:'unsafe-album-url'};invalid.album.tracks[0].direct_url='javascript:alert(1)';
+  const sanitized=await write(agent,'post','/api/admin/music/albums',csrf,invalid).expect(201);
+  assert.equal(sanitized.body.tracks[0].direct_url,'');
  }finally{close();}
 });
 
-test('Drive preview is never exposed as an HTML5 stream and private files stay out of public album data',()=>{
+test('Music albums expose only authorized Drive downloads, never streaming URLs or private files',()=>{
  const album=publicMusicAlbum({artist:'Artist',release_year:2022,genre:'Jazz',bundle_file_id:'bundle_123456',post:{id:'post-id',slug:'album',title:'Album',description:'',cover_url:'',updated_at:'2026-01-01',status:'published',is_pinned:false,pin_order:0,drive_files:[
   {file_id:'audio_public_123',name:'Public.mp3',mime_type:'audio/mpeg',sharing_confirmed:1,sharing_access:'anyone',can_download:1,web_url:'https://drive.google.com/file/d/audio_public_123/view?resourcekey=public-key',download_url:'https://drive.google.com/uc?export=download&id=audio_public_123'},
   {file_id:'audio_private_123',name:'Private.mp3',mime_type:'audio/mpeg',sharing_confirmed:0,sharing_access:'restricted',can_download:1,web_url:'https://drive.google.com/file/d/audio_private_123/view',download_url:'https://drive.google.com/uc?id=audio_private_123'},
@@ -86,8 +87,9 @@ test('Drive preview is never exposed as an HTML5 stream and private files stay o
   {id:'2',position:1,title:'Private',duration_seconds:null,source_kind:'drive_preview',drive_file_id:'audio_private_123',sharing_confirmed:0},
   {id:'3',position:2,title:'Direct',duration_seconds:120,source_kind:'direct',direct_url:'https://media.example.test/direct.mp3',mime_type:'audio/mpeg',drive_file_id:'',sharing_confirmed:1},
  ]});
- assert.equal(album.tracks[0].source_kind,'drive_preview');assert.equal(album.tracks[0].playback_url,'');assert.match(album.tracks[0].open_url,/resourcekey=public-key/);assert.ok(album.tracks[0].download.url);
- assert.equal(album.tracks[1].open_url,'');assert.equal(album.tracks[1].download,null);assert.equal(album.tracks[2].playback_url,'https://media.example.test/direct.mp3');
+ assert.equal(album.tracks[0].title,'Preview');assert.ok(album.tracks[0].download.url);
+ assert.equal(album.tracks[1].download,null);assert.equal(album.tracks[2].download,null);
+ assert.ok(!JSON.stringify(album).includes('playback_url'));assert.ok(!JSON.stringify(album).includes('media.example.test'));
  assert.equal(album.bundle_download.name,'Album.zip');assert.ok(!JSON.stringify(album).includes('audio_private_123'));
 });
 
@@ -108,12 +110,15 @@ test('static export writes only Published albums and exports ordered public trac
   const exported=await exportStatic({databasePath:filename,outputDir:output});assert.equal(exported.count,1);
   const musicText=await readFile(path.join(output,'content','music.json'),'utf8'),data=JSON.parse(musicText);
   assert.equal(data.albums.length,1);assert.deepEqual(data.albums[0].tracks.map(track=>track.position),[0,1,2]);
-  assert.equal(data.albums[0].tracks[0].playback_url,'https://media.example.test/stream.mp3');
-  assert.equal(data.albums[0].tracks[1].source_kind,'drive_preview');assert.equal(data.albums[0].tracks[1].playback_url,'');assert.ok(data.albums[0].tracks[1].open_url);
+  assert.equal(data.albums[0].tracks[0].download,null);
+  assert.equal(data.albums[0].tracks[1].download.name,'Song.mp3');assert.match(data.albums[0].tracks[1].download.url,/audio_public_123/);
   assert.equal(data.albums[0].tracks[2].download,null);assert.equal(data.albums[0].bundle_download.name,'Album.zip');
-  for(const secret of ['private_audio_123','Draft Album','sharing_confirmed','admin@example.com'])assert.ok(!musicText.includes(secret));
+  for(const secret of ['private_audio_123','Draft Album','sharing_confirmed','admin@example.com','playback_url','media.example.test','open_url'])assert.ok(!musicText.includes(secret));
+  assert.ok(!JSON.stringify(JSON.parse(await readFile(path.join(output,'content','posts.json'),'utf8'))).includes('media.example.test'));
   assert.ok(JSON.parse(await readFile(path.join(output,'content','posts.json'),'utf8')).posts.some(post=>post.id===album.post_id&&post.content_type==='music_album'));
   assert.deepEqual(readMusicAlbums(filename),data.albums);
-  for(const file of ['js/music-content.js','js/music-player.js','content/music.json'])assert.ok(await readFile(path.join(output,file)));
+  assert.ok(await readFile(path.join(output,'content','music.json')));
+  for(const file of ['music-content.js','music-player.js'])await assert.rejects(()=>readFile(path.join(output,'js',file)));
+  assert.doesNotMatch(await readFile(path.join(output,'js','main.js'),'utf8'),/music-(?:content|player)\.js/);
  }finally{db?.close();await rm(directory,{recursive:true,force:true});}
 });

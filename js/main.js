@@ -1,9 +1,7 @@
 import { CATEGORIES,filterPosts,sortPinnedPosts } from './data.js?v=15';
-import { cover,detailHTML,escapeHTML,categoryName,spotlightHTML } from './content.js?v=17';
+import { cover,detailHTML,escapeHTML,categoryName,spotlightHTML,albumCardHTML,albumDetailHTML } from './content.js?v=18';
 import { createPostSource } from './post-source.js?v=11';
 import {initPlayers} from './media.js?v=14';
-import {albumCardHTML,albumDetailHTML} from './music-content.js?v=1';
-import {initAlbumPlayer} from './music-player.js?v=1';
 const source=createPostSource();
 const $=s=>document.querySelector(s);
 // Public entry point only. Nothing is hidden while JS/observers are unavailable.
@@ -145,7 +143,7 @@ async function route(){
    if(version!==routeVersion)return;
    const slug=decodeURIComponent(hash.slice(7)),album=albums.find(item=>item.slug===slug);
    if(!album)throw new Error('Album không tồn tại hoặc chưa được xuất bản.');
-   group='music';detail.innerHTML=albumDetailHTML(album);disposePlayers=initAlbumPlayer(detail,album);
+   group='music';detail.innerHTML=albumDetailHTML(album);
    document.title=`${album.title} — IVAN Base Drive`;window.scrollTo(0,0);detail.querySelector('h1').focus({preventScroll:true});
   }catch(error){if(version===routeVersion)detail.innerHTML=`<a class="back-link" href="#music">← Trở về Nhạc</a><p role="alert">${escapeHTML(error.message)}</p>`;}
  }else{

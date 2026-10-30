@@ -72,7 +72,7 @@ export async function exportStatic({ databasePath=path.resolve(process.env.DATAB
   let html=(await readFile(path.join(sourceDir,'index.html'),'utf8')).replace(/<a\b[^>]*\bdata-local-admin\b[^>]*>.*?<\/a>/g,'').replace('data-feedback-form-url=""',`data-feedback-form-url="${publicFormURL(process.env.FEEDBACK_FORM_URL??DEFAULT_FEEDBACK_FORM_URL)}"`);
   await writeFile(path.join(outputDir,'index.html'),html,'utf8');
   await copyFile(path.join(sourceDir,'css/style.css'),path.join(outputDir,'css/style.css'));
-  for(const file of ['main.js','data.js','content.js','post-source.js','media.js','markdown.js','music-content.js','music-player.js']) await copyFile(path.join(sourceDir,'js',file),path.join(outputDir,'js',file));
+  for(const file of ['main.js','data.js','content.js','post-source.js','media.js','markdown.js']) await copyFile(path.join(sourceDir,'js',file),path.join(outputDir,'js',file));
   const uploads=[...new Set(posts.flatMap(localImages))];
   for(const relative of uploads){
     const from=path.join(sourceDir,relative);

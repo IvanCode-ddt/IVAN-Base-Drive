@@ -1,4 +1,4 @@
-import { MEDIA_TYPES, directMediaURL, drivePreview } from '../js/media.js';
+import { MEDIA_TYPES, directMediaURL } from '../js/media.js';
 import { DriveError } from './drive.js';
 import { selectedDriveFiles } from './drive-routes.js';
 import { InputError, validatePost } from './posts.js';
@@ -35,7 +35,7 @@ function validateAlbum(body, files) {
     if (id) seen.add(id);
     const duration = track.duration_seconds === '' || track.duration_seconds == null ? null : Number(track.duration_seconds);
     if (duration !== null && (!Number.isInteger(duration) || duration < 0 || duration > 86400)) throw new InputError(`Thời lượng track ${index + 1} không hợp lệ.`);
-    const sourceKind = track.source_kind;
+    const sourceKind = track.source_kind || 'download_only';
     if (!['direct', 'drive_preview', 'download_only'].includes(sourceKind)) throw new InputError(`Nguồn bài hát ${index + 1} không hợp lệ.`);
     const driveFileId = typeof track.drive_file_id === 'string' ? track.drive_file_id : '';
     const file = driveFileId ? byId.get(driveFileId) : null;
@@ -43,14 +43,11 @@ function validateAlbum(body, files) {
     const directUrl = typeof track.direct_url === 'string' ? track.direct_url : '';
     const mimeType = typeof track.mime_type === 'string' ? track.mime_type : '';
     const sharingConfirmed = track.sharing_confirmed === true || track.sharing_confirmed === 1;
-    if (sourceKind === 'direct') {
-      if (!directMediaURL(directUrl) || !MEDIA_TYPES.includes(mimeType) || !mimeType.startsWith('audio/') || !sharingConfirmed) throw new InputError(`Track “${track.title}”: nguồn phát phải là HTTPS audio hợp lệ và cần xác nhận quyền chia sẻ.`);
-    } else {
-      if (!driveFileId) throw new InputError(`Track “${track.title}” cần chọn file âm thanh Google Drive.`);
-      if (sourceKind === 'drive_preview' && !drivePreview(file.web_url)) throw new InputError(`Link preview Drive của track “${track.title}” không hợp lệ.`);
-      if (sourceKind === 'download_only' && !file.can_download) throw new InputError(`Track “${track.title}” không có quyền tải xuống.`);
-    }
-    return { id, title: track.title.trim(), duration_seconds: duration, source_kind: sourceKind, direct_url: sourceKind === 'direct' ? directMediaURL(directUrl) : '', mime_type: sourceKind === 'direct' ? mimeType : '', drive_file_id: driveFileId, sharing_confirmed: sharingConfirmed };
+    return {
+      id, title: track.title.trim(), duration_seconds: duration, source_kind: sourceKind,
+      direct_url: directMediaURL(directUrl), mime_type: MEDIA_TYPES.includes(mimeType) ? mimeType : '',
+      drive_file_id: driveFileId, sharing_confirmed: sharingConfirmed,
+    };
   });
   const bundleFileId = album.bundle_file_id ?? '';
   if (typeof bundleFileId !== 'string' || (bundleFileId && !validBundle(byId.get(bundleFileId)))) throw new InputError('File tải toàn bộ cần là ZIP, RAR hoặc 7z đã chọn từ Google Drive.');
@@ -66,19 +63,9 @@ export function publicMusicAlbum(album) {
   if (!album?.post || album.post.status !== 'published' || album.post.deleted_at) return null;
   const post = album.post, files = post.drive_files || [];
   const tracks = album.tracks.map(track => {
-    const file = files.find(item => item.file_id === track.drive_file_id && item.sharing_confirmed === 1 && item.sharing_access === 'anyone');
-    let sourceKind = track.source_kind, playbackUrl = '', openUrl = '';
-    if (track.source_kind === 'direct' && track.sharing_confirmed === 1) playbackUrl = directMediaURL(track.direct_url);
-    if (track.source_kind === 'drive_preview' && file?.mime_type?.startsWith('audio/')) {
-      const preview = drivePreview(file.web_url);
-      if (preview) { sourceKind = 'drive_preview'; openUrl = safePublicURL(file.web_url); }
-      else sourceKind = 'download_only';
-    } else if (track.source_kind === 'download_only') sourceKind = 'download_only';
-    if (track.source_kind === 'direct' && !playbackUrl) sourceKind = 'download_only';
     const download = downloadFor(track.drive_file_id, files);
     return {
-      id: track.id, position: track.position, title: track.title, duration_seconds: track.duration_seconds,
-      source_kind: sourceKind, playback_url: playbackUrl, open_url: openUrl, mime_type: track.mime_type,
+      id: track.id, position: track.position, title: track.title,
       download: download?.url ? download : null,
     };
   });
@@ -87,7 +74,7 @@ export function publicMusicAlbum(album) {
     post_id: post.id, slug: post.slug, title: post.title, description: post.description,
     cover_url: post.cover_url, updated_at: post.updated_at, is_pinned:post.is_pinned, pin_order:post.pin_order,
     artist: album.artist,
-    release_year: album.release_year, genre: album.genre, tracks,
+    tracks,
     bundle_download: bundle?.url ? bundle : null,
   };
 }

@@ -9,8 +9,9 @@ import {createApp} from '../server/app.js';
 import {openDatabase} from '../server/database.js';
 import {validatePost} from '../server/posts.js';
 import {exportStatic} from '../scripts/export-static.mjs';
+import {DRIVE_SCOPE,FOLDER} from '../server/drive.js';
 
-test('public Library/Music/Film routes, album controls, Drive preview/download and responsive layout',async()=>{
+test('public Library/Music/Film routes, download-only albums, and responsive layout',async()=>{
  const directory=await mkdtemp(path.join(tmpdir(),'ivan-music-browser-')),databasePath=path.join(directory,'db.sqlite'),site=path.join(directory,'site'),db=openDatabase(databasePath);
  const post=validatePost({title:'Browser Album',slug:'browser-album',category:'music',description:'Playlist search phrase',images:[],status:'published'});
  const audio={file_id:'audio_public_123',name:'Preview.mp3',mime_type:'audio/mpeg',size:'1000',modified_time:'',web_url:'https://drive.google.com/file/d/audio_public_123/view?resourcekey=public-key',download_url:'https://drive.google.com/uc?export=download&id=audio_public_123&resourcekey=public-key',can_download:1,sharing_access:'anyone',requested_sharing:true};
@@ -38,15 +39,7 @@ test('public Library/Music/Film routes, album controls, Drive preview/download a
  try{
   browser=await chromium.launch({channel:'msedge',headless:true});
   for(const viewport of [{width:1440,height:1000},{width:390,height:844}]){
-   const context=await browser.newContext({viewport});await context.addInitScript(()=>{
-    HTMLMediaElement.prototype.canPlayType=()=> 'probably';
-    HTMLMediaElement.prototype.load=function(){};
-    HTMLMediaElement.prototype.pause=function(){};
-    HTMLMediaElement.prototype.play=function(){
-     if(this.src.includes('/broken.mp3')){this.dispatchEvent(new Event('error'));return Promise.reject(new Error('simulated network error'));}
-     this.dispatchEvent(new Event('play'));return Promise.resolve();
-    };
-   });
+   const context=await browser.newContext({viewport});
    const page=await context.newPage(),errors=[];page.on('pageerror',error=>errors.push(error.message));
    await page.goto(origin+'/site/');await page.locator('#post-grid .post-card').waitFor();
    assert.deepEqual(await page.locator('#post-grid h3').allTextContents(),['Ordinary Game']);
@@ -60,21 +53,14 @@ test('public Library/Music/Film routes, album controls, Drive preview/download a
    await page.goBack();await page.waitForURL(/#music$/);assert.equal(await page.locator('[data-group="music"]').getAttribute('aria-current'),'page');
    await page.locator('#album-grid .album-card').click();await page.waitForURL(/#album\/browser-album$/);
    assert.equal(await page.locator('.album-track').count(),4);assert.deepEqual(await page.locator('.album-track .track-number').allTextContents(),['1','2','3','4']);
-   assert.equal(await page.locator('.album-track [data-play-track]').count(),2);
-   assert.equal(await page.locator('.album-track').nth(1).getByRole('link',{name:/Mở trên Google Drive/}).count(),1);
-   assert.equal(await page.locator('.album-track').nth(1).getByRole('link',{name:'Tải bài hát'}).count(),1);
-   assert.equal(await page.locator('.album-track').nth(1).locator('audio').count(),0);
-   assert.equal(await page.locator('.album-track').nth(2).getByRole('link',{name:'Tải bài hát'}).count(),0);
-   assert.equal(await page.locator('[data-play-album]').count(),1);assert.equal(await page.getByRole('link',{name:'Tải toàn bộ album'}).count(),1);
-   const audioElement=page.locator('.album-audio');assert.equal(await audioElement.getAttribute('preload'),'none');assert.equal(await audioElement.getAttribute('src'),null);
-   await page.locator('[data-play-track="0"]').click();await page.waitForFunction(()=>document.querySelector('.album-player-status').textContent.includes('Đang phát: Direct First'));
-   assert.equal(await audioElement.evaluate(el=>new URL(el.src).pathname),'/first.mp3');
-   await page.locator('[data-next]').click();await page.waitForFunction(()=>/Không phát được|Lỗi khi tải/.test(document.querySelector('.album-player-status').textContent));
-   await page.locator('[data-repeat]').click();assert.equal(await page.locator('[data-repeat]').textContent(),'Lặp: Album');
-   await page.locator('[data-repeat]').click();assert.equal(await page.locator('[data-repeat]').textContent(),'Lặp: Bài này');
-   await page.locator('[data-repeat]').click();assert.equal(await page.locator('[data-repeat]').textContent(),'Lặp: Tắt');
-   await page.locator('[data-shuffle]').click();assert.ok(['first.mp3','broken.mp3'].includes(await audioElement.evaluate(el=>new URL(el.src).pathname.slice(1))));
-   assert.equal(await page.locator('.album-audio').count(),1);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true);
+   assert.equal(await page.locator('.album-track a').count(),1);
+   assert.equal(await page.locator('.album-track').nth(1).getByRole('link',{name:'Tải xuống'}).getAttribute('href').then(value=>new URL(value).searchParams.get('id')),'audio_public_123');
+   assert.equal(await page.locator('.album-track').nth(2).getByRole('link').count(),0);
+   assert.equal(await page.getByRole('link',{name:'Tải toàn bộ album'}).count(),1);
+   assert.equal(await page.locator('audio,video').count(),0);
+   assert.equal(await page.locator('.album-detail button, .album-detail iframe, .album-detail [data-play-track], .album-detail [data-play-album], .album-detail [data-shuffle], .album-detail [data-repeat], .album-detail [data-next], .album-detail [data-previous]').count(),0);
+   assert.ok(!(await page.locator('.album-detail').textContent()).includes('Phát'));
+   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true);
    assert.deepEqual(errors,[]);await context.close();
   }
  }finally{await browser?.close();await new Promise(resolve=>staticServer.close(resolve));await new Promise(resolve=>server.close(resolve));db.close();await rm(directory,{recursive:true,force:true});}
@@ -82,9 +68,16 @@ test('public Library/Music/Film routes, album controls, Drive preview/download a
 
 test('Admin type picker creates albums, keeps Film disabled, and edits ordered tracks',async()=>{
  const directory=await mkdtemp(path.join(tmpdir(),'ivan-music-admin-browser-')),db=openDatabase(path.join(directory,'db.sqlite'));
- const config={baseUrl:'http://localhost:3000',redirectUri:'http://localhost:3000/auth/google/callback',adminEmail:'admin@example.test',clientId:'browser-test',clientSecret:'browser-test-secret',sessionSecret:randomBytes(48).toString('hex'),secure:false};
- let pending;const oauth={generateAuthUrl(params){pending=params;return`${config.baseUrl}/auth/google/callback?state=${params.state}&code=test`;},async getToken(){return{tokens:{id_token:'test'}};},async verifyIdToken(){return{getPayload:()=>({sub:'browser-admin',email:config.adminEmail,email_verified:true,nonce:pending.nonce})};}};
- const server=createApp({config,db,oauthClient:oauth}).listen(0,'127.0.0.1');await new Promise(resolve=>server.once('listening',resolve));config.baseUrl=`http://127.0.0.1:${server.address().port}`;config.redirectUri=config.baseUrl+'/auth/google/callback';let browser;
+ const config={baseUrl:'http://localhost:3000',redirectUri:'http://localhost:3000/auth/google/callback',adminEmail:'admin@example.test',clientId:'browser-test',clientSecret:'browser-test-secret',sessionSecret:randomBytes(48).toString('hex'),secure:false,driveRootId:'music_test_root'};
+ const rootFolder={id:config.driveRootId,name:'Music Test Drive',mimeType:FOLDER,parents:[]};
+ const files=[
+  {id:'music_track_1',name:'Track One.mp3',mimeType:'audio/mpeg',size:'1000',parents:[config.driveRootId],webViewLink:'https://drive.google.com/file/d/music_track_1/view',webContentLink:'https://drive.google.com/uc?export=download&id=music_track_1',capabilities:{canDownload:true},permissions:[{type:'anyone',role:'reader'}]},
+  {id:'music_track_2',name:'Track Two.flac',mimeType:'audio/flac',size:'2000',parents:[config.driveRootId],webViewLink:'https://drive.google.com/file/d/music_track_2/view',webContentLink:'https://drive.google.com/uc?export=download&id=music_track_2',capabilities:{canDownload:true},permissions:[{type:'anyone',role:'reader'}]},
+  {id:'music_bundle_1',name:'Album.zip',mimeType:'application/zip',size:'3000',parents:[config.driveRootId],webViewLink:'https://drive.google.com/file/d/music_bundle_1/view',webContentLink:'https://drive.google.com/uc?export=download&id=music_bundle_1',capabilities:{canDownload:true},permissions:[{type:'anyone',role:'reader'}]},
+ ];
+ let pending;const oauth={generateAuthUrl(params){pending=params;return`${config.baseUrl}/auth/google/callback?state=${params.state}&code=test`;},async getToken(){return{tokens:{id_token:'test',access_token:'drive-access',scope:DRIVE_SCOPE,expiry_date:Date.now()+3600000}};},async verifyIdToken(){return{getPayload:()=>({sub:'browser-admin',email:config.adminEmail,email_verified:true,nonce:pending.nonce})};}};
+ const driveRequest=async(_tokens,resource,params)=>resource==='files'?{files:params.q.includes(config.driveRootId)?files:[]}:resource===`files/${config.driveRootId}`?rootFolder:files.find(file=>resource===`files/${file.id}`);
+ const server=createApp({config,db,oauthClient:oauth,driveRequest}).listen(0,'127.0.0.1');await new Promise(resolve=>server.once('listening',resolve));config.baseUrl=`http://127.0.0.1:${server.address().port}`;config.redirectUri=config.baseUrl+'/auth/google/callback';let browser;
  try{
   browser=await chromium.launch({channel:'msedge',headless:true});const page=await browser.newPage({viewport:{width:1280,height:900}}),errors=[];let saveBody;page.on('request',request=>{if(request.url().endsWith('/api/admin/music/albums')&&request.method()==='POST')saveBody=JSON.parse(request.postData());});page.on('pageerror',error=>errors.push(error.message));
   await page.goto(config.baseUrl+'/auth/google');await page.waitForURL('**/admin/');
@@ -92,27 +85,29 @@ test('Admin type picker creates albums, keeps Film disabled, and edits ordered t
   assert.equal(await page.locator('.create-type-options button:disabled').count(),1);
   const film=page.locator('#create-type-dialog button[disabled]');assert.match(await film.textContent(),/Phim.*Coming soon/);
   await page.locator('#create-type-dialog a[href="/admin/music-editor.html"]').click();await page.waitForFunction(()=>!document.querySelector('#music-form').hasAttribute('inert'));
-  await page.locator('[name=title]').fill('Three Song Album');await page.locator('[name=artist]').fill('Test Artist');await page.locator('[name=description]').fill('Browser test');
-  for(let index=0;index<3;index++)await page.locator('#add-track').click();
-  for(let index=0;index<3;index++){
-   const row=page.locator('#track-rows .album-track-editor').nth(index);await row.locator('[data-field=source_kind]').selectOption('direct');
-   const current=page.locator('#track-rows .album-track-editor').nth(index);
-   await current.locator('[data-field=title]').fill(`Track ${index+1}`);
-   await current.locator('[data-field=direct_url]').fill(`https://media.example.test/admin-${index+1}.mp3`);
-   assert.equal(await current.locator('[data-field=direct_url]').inputValue(),`https://media.example.test/admin-${index+1}.mp3`);
-   await current.locator('[data-field=sharing_confirmed]').check();
+  await page.locator('[name=title]').fill('Two Song Album');await page.locator('[name=artist]').fill('Test Artist');await page.locator('[name=description]').fill('Browser test');
+  await page.locator('#add-track').click();await page.locator('#add-track').click();
+  await assert.doesNotReject(async()=>page.locator('#choose-drive').click());
+  for(const id of ['music_track_1','music_track_2','music_bundle_1']){await page.locator(`[data-pick="${id}"]`).check();}
+  await page.locator('#picker-confirm').click();
+  for(const id of ['music_track_1','music_track_2','music_bundle_1'])await page.locator(`[data-share="${id}"]`).check();
+  for(let index=0;index<2;index++){
+   const row=page.locator('#track-rows .album-track-editor').nth(index);
+   await row.locator('[data-field=title]').fill(`Track ${index+1}`);
+   await row.locator('[data-field=drive_file_id]').selectOption(`music_track_${index+1}`);
   }
-  assert.deepEqual(await page.locator('#track-rows [data-field=sharing_confirmed]').evaluateAll(nodes=>nodes.map(node=>node.checked)),[true,true,true]);
-  await page.locator('#track-rows .album-track-editor').nth(2).locator('[data-move="-1"]').click();
+  await page.locator('[name=bundle_file_id]').selectOption('music_bundle_1');
+  assert.equal(await page.locator('[data-field=direct_url], [data-field=source_kind], [data-field=mime_type], [data-field=sharing_confirmed]').count(),0);
   await page.locator('#track-rows .album-track-editor').nth(1).locator('[data-move="-1"]').click();
-  assert.deepEqual(await page.locator('#track-rows .album-track-editor [data-field=title]').evaluateAll(nodes=>nodes.map(node=>node.value)),['Track 3','Track 1','Track 2']);
+  assert.deepEqual(await page.locator('#track-rows .album-track-editor [data-field=title]').evaluateAll(nodes=>nodes.map(node=>node.value)),['Track 2','Track 1']);
   await page.locator('button[value=published]').click();await page.waitForFunction(()=>document.querySelector('#music-message').textContent.trim().length>0);assert.match(await page.locator('#music-message').textContent(),/Đã lưu album/,JSON.stringify(saveBody));
-  const albums=db.musicAlbums();assert.equal(albums.length,1);const album=albums[0];assert.deepEqual(album.tracks.map(track=>track.title),['Track 3','Track 1','Track 2']);
+  const albums=db.musicAlbums();assert.equal(albums.length,1);const album=albums[0];assert.deepEqual(album.tracks.map(track=>track.title),['Track 2','Track 1']);
+  assert.deepEqual(album.tracks.map(track=>track.drive_file_id),['music_track_2','music_track_1']);assert.equal(album.bundle_file_id,'music_bundle_1');
   const ids=album.tracks.map(track=>track.id);await page.goto(config.baseUrl+`/admin/music-editor.html?edit=${album.post_id}`);await page.waitForFunction(()=>!document.querySelector('#music-form').hasAttribute('inert'));
-  assert.deepEqual(await page.locator('#track-rows .album-track-editor [data-field=title]').evaluateAll(nodes=>nodes.map(node=>node.value)),['Track 3','Track 1','Track 2']);
-  await page.locator('#track-rows .album-track-editor').nth(0).locator('[data-field=title]').fill('Edited Track 3');await page.locator('button[value=published]').click();
+  assert.deepEqual(await page.locator('#track-rows .album-track-editor [data-field=title]').evaluateAll(nodes=>nodes.map(node=>node.value)),['Track 2','Track 1']);
+  await page.locator('#track-rows .album-track-editor').nth(0).locator('[data-field=title]').fill('Edited Track 2');await page.locator('button[value=published]').click();
   await page.waitForFunction(()=>document.querySelector('#music-message').textContent.includes('Đã lưu album'));
-  assert.deepEqual(db.musicAlbum(album.post_id).tracks.map(track=>track.id),ids);assert.equal(db.musicAlbum(album.post_id).tracks[0].title,'Edited Track 3');assert.deepEqual(errors,[]);
+  assert.deepEqual(db.musicAlbum(album.post_id).tracks.map(track=>track.id),ids);assert.equal(db.musicAlbum(album.post_id).tracks[0].title,'Edited Track 2');assert.deepEqual(errors,[]);
   await page.goto(config.baseUrl+'/admin/');await page.locator('#create-post').click();await page.locator('#create-type-dialog[open]').waitFor();
   await page.locator('#create-type-dialog a[href="/admin/editor.html"]').click();await page.waitForFunction(()=>!document.querySelector('#post-form').hasAttribute('inert'));
   assert.equal(await page.locator('[name=category]').inputValue(),'game');await page.locator('[name=title]').fill('Game with original form');await page.locator('[name=description]').fill('Old CMS form remains functional.');

@@ -1,11 +1,10 @@
 import { initDrivePicker } from './drive-picker.js?v=9';
 import { slugify } from './editor.js?v=9';
-import { MEDIA_TYPES, imageURL } from '/js/media.js?v=17';
+import { imageURL } from '/js/media.js?v=17';
 import { createNotifications } from './notifications.js';
 
 const $=selector=>document.querySelector(selector),form=$('#music-form'),notifications=createNotifications();
-let csrf='',editingId=null,loadedPost=null,tracks=[],dirty=false;
-const audioTypes=MEDIA_TYPES.filter(type=>type.startsWith('audio/'));
+let csrf='',editingId=null,loadedPost=null,loadedAlbum=null,tracks=[],dirty=false;
 function message(text,error=false){$('#music-message').textContent=text;$('#music-message').dataset.error=String(error);}
 async function api(url,options={}){
  const response=await fetch(url,{...options,headers:{'Content-Type':'application/json','X-CSRF-Token':csrf,...options.headers}});
@@ -30,19 +29,11 @@ function renderTracks(){
   const row=document.createElement('fieldset');row.className='album-track-editor';row.dataset.trackIndex=String(index);
   const legend=document.createElement('legend');legend.textContent=`Bài hát ${index+1}`;row.append(legend);
   const title=document.createElement('input');title.maxLength=160;title.required=true;title.value=track.title||'';title.dataset.field='title';row.append(label('Tên bài hát',title));
-  const seconds=document.createElement('input');seconds.type='number';seconds.min='0';seconds.max='86400';seconds.step='1';seconds.value=track.duration_seconds??'';seconds.dataset.field='duration_seconds';row.append(label('Thời lượng (giây, tuỳ chọn)',seconds));
-  const source=document.createElement('select');source.dataset.field='source_kind';
-  for(const[value,text]of[['direct','Phát trực tiếp · HTML5 HTTPS'],['drive_preview','Xem trước Google Drive'],['download_only','Chỉ tải xuống']])source.add(new Option(text,value));
-  source.value=track.source_kind||'drive_preview';row.append(label('Nguồn bài hát',source));
-  const url=document.createElement('input');url.type='url';url.maxLength=2048;url.placeholder='https://…/song.mp3';url.value=track.direct_url||'';url.dataset.field='direct_url';row.append(label('URL audio HTTPS',url));
-  const mime=document.createElement('select');mime.dataset.field='mime_type';for(const type of audioTypes)mime.add(new Option(type,type));mime.value=track.mime_type||'audio/mpeg';track.mime_type=mime.value;row.append(label('Định dạng audio',mime));
-  const file=document.createElement('select');file.dataset.field='drive_file_id';file.add(new Option('Không dùng file Drive cho bài này',''));
-  for(const item of fileOptions(true))file.add(new Option(`${item.name}${item.sharing_confirmed===1?' · công khai':' · riêng tư'}`,item.file_id));
-  file.value=track.drive_file_id||'';row.append(label('File âm thanh / tải xuống từ Google Drive',file));
-  const rights=document.createElement('label');rights.className='sharing-label';
-  const consent=document.createElement('input');consent.type='checkbox';consent.checked=track.sharing_confirmed===true||track.sharing_confirmed===1;consent.disabled=track.source_kind!=='direct';consent.dataset.field='sharing_confirmed';rights.append(consent,document.createTextNode('Tôi có quyền chia sẻ nguồn phát trực tiếp này'));row.append(rights);
+  const file=document.createElement('select');file.dataset.field='drive_file_id';file.add(new Option('Chọn file tải xuống (tuỳ chọn)',''));
+  for(const item of fileOptions(true))file.add(new Option(item.name,item.file_id));
+  file.value=track.drive_file_id||'';row.append(label('File Google Drive của bài hát',file));
   const status=document.createElement('p');status.className='track-source-status';
-  status.textContent=track.source_kind==='direct'?'Phát trực tiếp bằng HTML5.':track.source_kind==='drive_preview'?'Chỉ mở Google Drive Preview, không tham gia playlist HTML5.':'Chỉ tải; sẽ được bỏ qua khi phát album.';
+  status.textContent=track.drive_file_id?`Đã gắn: ${driveUI.files().find(item=>item.file_id===track.drive_file_id)?.name||track.drive_file_id}. Quyền tải theo cấu hình Drive hiện có.`:'Chưa chọn file tải xuống.';
   row.append(status);
   const actions=document.createElement('div');actions.className='drive-actions';
   for(const[delta,text]of[[-1,'↑ Lên'],[1,'↓ Xuống']]){const button=document.createElement('button');button.type='button';button.className='secondary-button';button.textContent=text;button.disabled=index+delta<0||index+delta>=tracks.length;button.dataset.move=String(delta);actions.append(button);}
@@ -55,10 +46,9 @@ function renderCover(){
 }
 const driveUI=initDrivePicker({api,onDirty:()=>{setDirty();renderTracks();renderBundle();}});
 function fill(album=null){
- form.reset();editingId=album?.post_id||null;loadedPost=album?.post||null;
+ form.reset();editingId=album?.post_id||null;loadedAlbum=album;loadedPost=album?.post||null;
  const post=loadedPost;form.elements.title.value=post?.title||'';form.elements.slug.value=post?.slug||'';
  form.elements.description.value=post?.description||'';form.elements.artist.value=album?.artist||'';
- form.elements.release_year.value=album?.release_year??'';form.elements.genre.value=album?.genre||'';
  form.elements.cover_url.value=post?.cover_url||'';form.elements.status.value=post?.status||'draft';
  tracks=(album?.tracks||[]).map(track=>({...track}));
  $('#editor-title').textContent=album?'Chỉnh sửa album':'Album nhạc mới';
@@ -66,22 +56,17 @@ function fill(album=null){
  $('#saved-info').textContent=post?`ID: ${post.id} · ${post.status} · Cập nhật: ${new Date(post.updated_at).toLocaleString('vi-VN')}`:'';
  driveUI.fill(post);renderBundle(album?.bundle_file_id||'');renderTracks();renderCover();dirty=false;
 }
-form.elements.title.addEventListener('input',()=>{if(!editingId&&!form.elements.slug.dataset.manual)form.elements.slug.value=slugify(form.elements.title.value);setDirty();});
-form.elements.slug.addEventListener('input',()=>{form.elements.slug.dataset.manual='true';setDirty();});
-$('#regenerate-slug').addEventListener('click',()=>{form.elements.slug.value=slugify(form.elements.title.value);form.elements.slug.dataset.manual='';setDirty();});
-$('#add-track').addEventListener('click',()=>{tracks.push({title:'',duration_seconds:null,source_kind:'drive_preview',direct_url:'',mime_type:'',drive_file_id:'',sharing_confirmed:false});renderTracks();setDirty();});
+form.elements.title.addEventListener('input',()=>{if(!editingId)form.elements.slug.value=slugify(form.elements.title.value);setDirty();});
+$('#add-track').addEventListener('click',()=>{tracks.push({title:'',duration_seconds:null,source_kind:'download_only',direct_url:'',mime_type:'',drive_file_id:'',sharing_confirmed:false});renderTracks();setDirty();});
 $('#track-rows').addEventListener('input',event=>{
  const field=event.target.closest('[data-field]'),row=event.target.closest('[data-track-index]');if(!field||!row)return;
  const track=tracks[Number(row.dataset.trackIndex)],key=field.dataset.field;
- track[key]=key==='duration_seconds'?(field.value===''?null:Number(field.value)):key==='sharing_confirmed'?field.checked:field.value;setDirty();
+ track[key]=field.value;setDirty();
 });
 $('#track-rows').addEventListener('change',event=>{
  const field=event.target.closest('[data-field]'),row=event.target.closest('[data-track-index]');if(!field||!row)return;
- const track=tracks[Number(row.dataset.trackIndex)],key=field.dataset.field;track[key]=key==='sharing_confirmed'?field.checked:field.value;
- if(key==='source_kind'){
-  row.querySelector('[data-field="sharing_confirmed"]').disabled=track.source_kind!=='direct';
-  row.querySelector('.track-source-status').textContent=track.source_kind==='direct'?'Phát trực tiếp bằng HTML5.':track.source_kind==='drive_preview'?'Chỉ mở Google Drive Preview, không tham gia playlist HTML5.':'Chỉ tải; sẽ được bỏ qua khi phát album.';
- }
+ const track=tracks[Number(row.dataset.trackIndex)],key=field.dataset.field;track[key]=field.value;
+ if(key==='drive_file_id')row.querySelector('.track-source-status').textContent=track.drive_file_id?`Đã gắn: ${driveUI.files().find(item=>item.file_id===track.drive_file_id)?.name||track.drive_file_id}. Quyền tải theo cấu hình Drive hiện có.`:'Chưa chọn file tải xuống.';
  setDirty();
 });
 $('#track-rows').addEventListener('click',event=>{
@@ -109,7 +94,7 @@ form.addEventListener('submit',async event=>{
   drive_file_id:loadedPost?.drive_file_id||'',media_url:loadedPost?.media_url||'',status:intent};
  const body={cms_contract:2,post,drive_file_ids:driveUI.ids(),
   drive_public_file_ids:driveUI.files().filter(file=>file.sharing_confirmed===1&&file.sharing_access==='anyone').map(file=>file.file_id),
-  album:{artist:form.elements.artist.value,release_year:form.elements.release_year.value,genre:form.elements.genre.value,
+  album:{artist:form.elements.artist.value,release_year:loadedAlbum?.release_year??null,genre:loadedAlbum?.genre||'',
    bundle_file_id:form.elements.bundle_file_id.value,tracks:tracks.map(track=>({...track}))}};
  const buttons=[...form.querySelectorAll('button')],disabled=buttons.map(button=>button.disabled);buttons.forEach(button=>button.disabled=true);
  try{
