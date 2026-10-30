@@ -8,11 +8,13 @@
       "category": "game",
       "description": "Sekiro: Shadows Die Twice là một trò chơi phiêu lưu hành động năm 2019 do FromSoftware phát triển và Activision phát hành. Trò chơi kể về một nhẫn giả tên là Wolf và con đường trả thù một gia tộc samurai đã tấn công và bắt cóc lãnh chúa của anh.",
       "introduction": "Sekiro: Shadows Die Twice là một tựa game hành động phiêu lưu và nhập vai hành động (ARPG) đình đám được phát triển bởi FromSoftware và phát hành bởi Activision vào ngày 22 tháng 3, 2019. Được nhào nặn dưới bàn tay của đạo diễn thiên tài Hidetaka Miyazaki, trò chơi đã xuất sắc đoạt giải Game of the Year (Trò chơi của năm) tại sự kiện The Game Awards 2019.\n\nThông tin cơ bản\n\n• Nhà phát triển: FromSoftware Inc.\n• Đạo diễn / Thiết kế: Hidetaka Miyazaki\n• Nền tảng hỗ trợ: PlayStation 4, Xbox One, Microsoft Windows (PC).\n• Bối cảnh: Thời kỳ chiến quốc Sengoku tái tưởng tượng tại Nhật Bản vào cuối thế kỷ 16.\n\nCốt truyện và Lối chơi\n\n• Nhân vật chính: Bạn sẽ vào vai Wolf (Sói), một shinobi (nhẫn giả) đơn độc mang nhiệm vụ bảo vệ một vị thiếu chủ mang dòng máu thần thánh tên là Kuro.\n• Cơ chế hồi sinh: Đúng như hậu bản \"Shadows Die Twice\", Wolf sở hữu khả năng hồi sinh ngay tại chỗ để tiếp tục chiến đấu nhờ sức mạnh từ huyết mạch của Kuro.\n• Cánh tay giả Shinobi: Sau khi bị chặt đứt tay trái, Wolf được trang bị một cánh tay cơ khí có khả năng tích hợp nhiều công cụ độc đáo như dây móc kéo (Grappling Hook), búa rìu, ống phun lửa, và pháo nổ để tạo lợi thế trong giao tranh.\n• Hệ thống Posture (Kháng cự): Thay vì cấu rỉa thanh máu truyền thống, lối chơi của Sekiro tập trung vào việc triệt hạ thanh \"Posture\" của đối thủ thông qua việc tấn công dồn dập và căn thời gian đỡ đòn chuẩn xác (Deflect / Parry). Khi thanh Posture của địch đầy, bạn có thể tung ra đòn kết liễu chí mạng (Deathblow).\n\nĐiểm nổi bật\n\n• Độ khó cực cao: Game đòi hỏi phản xạ cực nhanh, sự kiên nhẫn và khả năng học thuộc bộ kỹ năng (moveset) của các con trùm.\n• Không có thanh thể lực (Stamina): Người chơi có thể thoải mái chạy nhảy, né đòn mà không lo cạn kiệt năng lượng, giúp nhịp độ trận đấu diễn ra cực kỳ nhanh và nghẹt thở.",
-      "instructions": "1.Tải và giải nén file sekiro.rar \n2.Tìm và chạy Sekiro.exe để khởi động game\n\n\nIngame: Tắt HDR trong cài đặt đồ họa trong game để hết bị mờ/đục trắng.",
+      "instructions": "1.Tải và giải nén file **sekiro.rar **\n2.Tìm và chạy **Sekiro.exe** để khởi động game\n\n\nIngame: Tắt **HDR** trong cài đặt đồ họa trong game để hết bị mờ/đục trắng.",
       "minimum_requirements": "• Hệ điều hành: Windows 7 / Windows 8 / Windows 10 (Yêu cầu phiên bản 64-bit)\n• Bộ vi xử lý (CPU): Intel Core i3-2100 hoặc AMD FX-6300\n• Bộ nhớ RAM: 4 GB RAM\n• Card đồ họa (GPU): NVIDIA GeForce GTX 760 hoặc AMD Radeon HD 7950\n• DirectX: Phiên bản 11\n• Dung lượng ổ cứng: Trống tối thiểu 25 GB",
       "recommended_requirements": "• Hệ điều hành: Windows 10 / Windows 11 (Yêu cầu phiên bản 64-bit)\n• Bộ vi xử lý (CPU): Intel Core i5-2500K hoặc AMD Ryzen 5 1400\n• Bộ nhớ RAM: 8 GB RAM\n• Card đồ họa (GPU): NVIDIA GeForce GTX 970 hoặc AMD Radeon RX 570\n• DirectX: Phiên bản 11\n• Dung lượng ổ cứng: Trống tối thiểu 25 GB (Nên dùng ổ ổ cứng SSD để giảm thời gian tải bản đồ khi nhân vật hồi sinh)",
-      "install_size": "",
-      "operating_systems": [],
+      "install_size": "~30Gb",
+      "operating_systems": [
+        "Windows"
+      ],
       "cover_url": "uploads/0a47052d-ac7d-4ba4-8a40-5d27bc548ecc.webp",
       "images": [
         "uploads/9661db3a-7fbb-4df7-88f2-84c0116eb90d.webp",
@@ -23,9 +25,9 @@
       "media_url": "",
       "status": "published",
       "created_at": "2026-10-30T19:29:09.288Z",
-      "updated_at": "2026-10-30T21:00:43.199Z",
+      "updated_at": "2026-10-30T21:57:20.190Z",
       "is_pinned": false,
-      "pin_order": 0,
+      "pin_order": 1,
       "is_spotlight": false,
       "metadata": {},
       "media_sources": [],
