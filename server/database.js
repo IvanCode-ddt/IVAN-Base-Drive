@@ -9,8 +9,8 @@ export function openDatabase(filename) {
   if (filename !== ':memory:') mkdirSync(path.dirname(filename), { recursive: true });
   const db = new DatabaseSync(filename);
   const initialVersion=db.prepare('PRAGMA user_version').get().user_version;
-  if(initialVersion>11){db.close();throw new Error('Database mới hơn ứng dụng.');}
-  if(filename!==':memory:'&&initialVersion<11&&db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='posts'").get()){
+  if(initialVersion>12){db.close();throw new Error('Database mới hơn ứng dụng.');}
+  if(filename!==':memory:'&&initialVersion<12&&db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='posts'").get()){
     try{const saved=verifiedBackup(db,filename);console.log(`Verified pre-migration backup: ${saved.path} (${saved.postCount} posts; integrity ok)`);}catch(error){db.close();throw error;}
   }
   db.exec(`PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;
@@ -24,7 +24,7 @@ export function openDatabase(filename) {
       created_at TEXT NOT NULL, updated_at TEXT NOT NULL
     ); CREATE INDEX IF NOT EXISTS posts_status_updated ON posts(status, updated_at DESC);`);
   const version = db.prepare('PRAGMA user_version').get().user_version;
-  if (version > 11) { db.close(); throw new Error('Database mới hơn phiên bản ứng dụng. Không tự động hạ cấp.'); }
+  if (version > 12) { db.close(); throw new Error('Database mới hơn phiên bản ứng dụng. Không tự động hạ cấp.'); }
   if (version < 2) {
     db.exec('BEGIN IMMEDIATE');
     try {
@@ -122,14 +122,25 @@ export function openDatabase(filename) {
     if(!names.includes('recommended_requirements'))db.exec("ALTER TABLE posts ADD COLUMN recommended_requirements TEXT NOT NULL DEFAULT ''");
     db.exec('PRAGMA user_version=11; COMMIT;');
   }catch(error){db.exec('ROLLBACK');db.close();throw error;}}
-  const decode = row => row ? { ...row, images: JSON.parse(row.images),metadata:JSON.parse(row.metadata),media_sources:JSON.parse(row.media_sources), drive_files: linkedFiles(row.id) } : null;
-  const columns = ['slug','title','category','description','introduction','instructions','cover_url','images','attachment_url','drive_file_id','media_url','status','is_pinned','pin_order','is_spotlight','metadata','media_sources','minimum_requirements','recommended_requirements'];
-  const values = post => columns.map(key => ['images','metadata','media_sources'].includes(key) ? JSON.stringify(post[key]) : post[key]);
+  if(version<12){db.exec('BEGIN IMMEDIATE');try{
+    const names=db.prepare('PRAGMA table_info(posts)').all().map(column=>column.name);
+    if(!names.includes('install_size'))db.exec("ALTER TABLE posts ADD COLUMN install_size TEXT NOT NULL DEFAULT ''");
+    if(!names.includes('operating_systems'))db.exec("ALTER TABLE posts ADD COLUMN operating_systems TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(operating_systems) AND json_type(operating_systems)='array')");
+    db.exec('PRAGMA user_version=12; COMMIT;');
+  }catch(error){db.exec('ROLLBACK');db.close();throw error;}}
+  const decode = row => row ? { ...row, images: JSON.parse(row.images),metadata:JSON.parse(row.metadata),media_sources:JSON.parse(row.media_sources),operating_systems:JSON.parse(row.operating_systems), drive_files: linkedFiles(row.id) } : null;
+  const columns = ['slug','title','category','description','introduction','instructions','cover_url','images','attachment_url','drive_file_id','media_url','status','is_pinned','pin_order','is_spotlight','metadata','media_sources','minimum_requirements','recommended_requirements','install_size','operating_systems'];
+  const values = post => columns.map(key => ['images','metadata','media_sources','operating_systems'].includes(key) ? JSON.stringify(post[key]) : post[key]);
   const pinFields=(post,old)=>{
     const is_spotlight=0;
     const is_pinned=post.is_pinned??old?.is_pinned??0,pin_order=post.pin_order??old?.pin_order??0;
+    if(is_pinned===1&&(pin_order<1||pin_order>20))throw new InputError('Vị trí ghim phải từ 1 đến 20.');
+    if(is_pinned===1){
+      const conflict=db.prepare('SELECT title FROM posts WHERE is_pinned=1 AND pin_order=? AND deleted_at IS NULL AND id<>?').get(pin_order,old?.id||'');
+      if(conflict)throw new InputError(`Vị trí ghim ${pin_order} đã có bài sử dụng: “${conflict.title}”. Chọn số khác.`);
+    }
     if(is_pinned===1&&db.prepare('SELECT COUNT(*) AS n FROM posts WHERE is_pinned=1 AND deleted_at IS NULL AND id<>?').get(old?.id||'').n>=5)throw new InputError('Tối đa 5 bài ghim. Hãy bỏ ghim một bài trước.');
-    return{...post,is_pinned,pin_order,is_spotlight,metadata:post.metadata??old?.metadata??{},media_sources:post.media_sources??old?.media_sources??[],minimum_requirements:Object.hasOwn(post,'minimum_requirements')?post.minimum_requirements:old?.minimum_requirements??'',recommended_requirements:Object.hasOwn(post,'recommended_requirements')?post.recommended_requirements:old?.recommended_requirements??''};
+    return{...post,is_pinned,pin_order,is_spotlight,metadata:post.metadata??old?.metadata??{},media_sources:post.media_sources??old?.media_sources??[],minimum_requirements:Object.hasOwn(post,'minimum_requirements')?post.minimum_requirements:old?.minimum_requirements??'',recommended_requirements:Object.hasOwn(post,'recommended_requirements')?post.recommended_requirements:old?.recommended_requirements??'',install_size:Object.hasOwn(post,'install_size')?post.install_size:old?.install_size??'',operating_systems:post.operating_systems??old?.operating_systems??[]};
   };
   return {
     close: () => db.close(),
@@ -180,6 +191,7 @@ export function openDatabase(filename) {
     saveWithFiles(post, id, files, adminEmail) {
       db.exec('BEGIN IMMEDIATE');
       try {
+        const old=id?this.get(id):null,beforeFiles=id?linkedFiles(id):[];
         const saved=id?this.update(id,post):this.create(post);
         if(!saved){db.exec('ROLLBACK');return null;}
         if(files!==undefined){
@@ -190,6 +202,8 @@ export function openDatabase(filename) {
             if(file.requested_sharing!==undefined)this.confirmFile(saved.id,file.file_id,file.requested_sharing?file:null,adminEmail);
           }
         }
+        if(old&&JSON.stringify(beforeFiles)!==JSON.stringify(linkedFiles(saved.id))&&this.get(saved.id).updated_at===old.updated_at)
+          db.prepare('UPDATE posts SET updated_at=? WHERE id=?').run(new Date().toISOString(),saved.id);
         const result=this.get(saved.id);db.exec('COMMIT');return result;
       }catch(error){db.exec('ROLLBACK');error.postSaveRolledBack=true;throw error;}
     },
@@ -217,6 +231,7 @@ export function openDatabase(filename) {
     restore(id){const old=this.get(id,true);if(old?.deleted_at)pinFields(old,old);return db.prepare('UPDATE posts SET deleted_at=NULL,updated_at=? WHERE id=? AND deleted_at IS NOT NULL').run(new Date().toISOString(),id).changes>0;},
     setPin(id,is_pinned,pin_order){
       db.exec('BEGIN IMMEDIATE');try{const old=this.get(id);if(!old){db.exec('ROLLBACK');return null;}const next=pinFields({...old,is_pinned,pin_order},old);
+        if(next.is_pinned===old.is_pinned&&next.pin_order===old.pin_order){db.exec('COMMIT');return old;}
         db.prepare('UPDATE posts SET is_pinned=?,pin_order=?,is_spotlight=?,updated_at=? WHERE id=?').run(next.is_pinned,next.pin_order,next.is_spotlight,new Date().toISOString(),id);
         const result=this.get(id);db.exec('COMMIT');return result;
       }catch(error){db.exec('ROLLBACK');throw error;}
@@ -230,6 +245,7 @@ export function openDatabase(filename) {
     },
     update(id, post) {
       const old=this.get(id);if(!old)return null;post=pinFields(post,old);
+      if(values(post).every((value,index)=>value===values(old)[index]))return old;
       const result = db.prepare(`UPDATE posts SET ${columns.map(key => `${key}=?`).join(',')},updated_at=? WHERE id=? AND deleted_at IS NULL`).run(...values(post),new Date().toISOString(),id);
       return result.changes ? this.get(id) : null;
     }

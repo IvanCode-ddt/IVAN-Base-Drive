@@ -21,7 +21,7 @@ test('Highlight API requires Google Admin and CSRF; config only accepts unique P
  const app=createApp({config,db,oauthClient:oauth}),agent=request.agent(app);
  await request(app).get('/api/admin/highlights').expect(401);
  await agent.get('/auth/google');await agent.get('/auth/google/callback').query({state:pending.state,code:'test'}).expect(302);
- const session=(await agent.get('/api/admin/session')).body;assert.equal(session.contentSchemaVersion,11);
+ const session=(await agent.get('/api/admin/session')).body;assert.equal(session.contentSchemaVersion,12);
  const adminPosts=(await agent.get('/api/admin/posts').expect(200)).body;
  assert.ok(adminPosts.some(post=>post.id===first.id&&post.title.startsWith('Sekiro™')));
  await agent.put('/api/admin/highlights').send({enabled:true,interval_seconds:6,slides:[]}).expect(403);
@@ -51,7 +51,7 @@ test('v9 migration makes a verified backup and converts legacy Spotlight without
   db.setPin(saved.id,0,0);assert.equal(db.highlightConfig().slides[0].post_id,saved.id);
   const reports=(await readdir(path.join(directory,'backups'))).filter(name=>name.endsWith('.verified.json'));
   assert.equal(JSON.parse(await readFile(path.join(directory,'backups',reports[0]),'utf8')).integrity,'ok');
-  const check=new DatabaseSync(filename,{readOnly:true});assert.equal(check.prepare('PRAGMA user_version').get().user_version,11);check.close();
+  const check=new DatabaseSync(filename,{readOnly:true});assert.equal(check.prepare('PRAGMA user_version').get().user_version,12);check.close();
  }finally{db?.close();await rm(directory,{recursive:true,force:true,maxRetries:5,retryDelay:100});}
 });
 

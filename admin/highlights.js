@@ -1,4 +1,4 @@
-import {escapeHTML,spotlightHTML} from '/js/content.js?v=15';
+import {escapeHTML,spotlightHTML} from '/js/content.js?v=16';
 import {createNotifications} from './notifications.js';
 
 const $=selector=>document.querySelector(selector),notifications=createNotifications();
@@ -64,7 +64,7 @@ $('#highlight-save').addEventListener('click',async()=>{
 });
 $('#highlight-logout').addEventListener('click',async()=>{try{await api('/api/admin/logout',{method:'POST',body:'{}'});location.assign('/login');}catch(error){notifications.error(error.message);}});
 try{
- const session=await api('/api/admin/session');if(session.contentSchemaVersion!==11)throw new Error('Backend đang chạy phiên bản cũ. Khởi động lại IVAN Admin rồi tải lại trang Highlight.');csrf=session.csrfToken;$('#highlight-email').textContent=session.email;
+ const session=await api('/api/admin/session');if(session.contentSchemaVersion!==12)throw new Error('Backend đang chạy phiên bản cũ. Khởi động lại IVAN Admin rồi tải lại trang Highlight.');csrf=session.csrfToken;$('#highlight-email').textContent=session.email;
  [posts,config]=await Promise.all([api('/api/admin/posts'),api('/api/admin/highlights')]);
  config.slides=config.slides.map(slide=>({...slide,...posts.find(post=>post.id===slide.post_id)}));
  render();

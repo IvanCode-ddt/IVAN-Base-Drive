@@ -25,7 +25,7 @@ test('Highlight carousel preserves four image ratios, controls motion accessibly
    galleryBuffers.set(images[0],await sharp({create:{width:1600,height:900,channels:3,background:'#345645'}}).webp().toBuffer());
    galleryBuffers.set(images[1],await sharp({create:{width:900,height:1600,channels:3,background:'#673e54'}}).webp().toBuffer());
   }
-  const post=db.create(validatePost({title:`Highlight ${index+1}`,slug:`highlight-${index+1}`,category:'game',description:'Slide description',cover_url:cover,images,status:'published',is_pinned:index===1,pin_order:0}));
+  const post=db.create(validatePost({title:`Highlight ${index+1}`,slug:`highlight-${index+1}`,category:'game',description:'Slide description',cover_url:cover,images,status:'published',is_pinned:index===1,pin_order:index===1?2:1}));
   posts.push(post);slides.push({post_id:post.id,enabled:true});
  }
  const sekiro=db.create(validatePost({title:'Sekiro™: Shadows Die Twice - GOTY Edition (Việt hóa sẵn)',slug:'sekiro',category:'game',description:'Published',images:[],status:'published',is_pinned:true,pin_order:1}));
@@ -47,6 +47,8 @@ test('Highlight carousel preserves four image ratios, controls motion accessibly
   page.on('request',request=>{if(/spotlight-.*\.webp/.test(request.url()))imageRequests.push(request.url());});
   await page.goto(config.baseUrl+'/site/');await page.locator('#spotlight-title-0').waitFor();
   assert.equal(await page.locator('[data-highlight-slide]').count(),4);
+  assert.equal(await page.locator('.spotlight-slide.is-active .primary-button').textContent(),'Mở bài viết ↗');
+  assert.equal(await page.locator('.spotlight-slide.is-active .primary-button').getAttribute('href'),'#post/highlight-1');
   assert.equal(await page.locator('[data-highlight-prev]').count(),1);
   assert.equal(await page.locator('[data-highlight-index]').count(),4);
   const frame=page.locator('#spotlight'),firstHeight=await frame.evaluate(element=>element.getBoundingClientRect().height);

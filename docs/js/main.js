@@ -1,5 +1,5 @@
 import { CATEGORIES,filterPosts,sortPinnedPosts } from './data.js?v=15';
-import { cover,detailHTML,escapeHTML,categoryName,spotlightHTML } from './content.js?v=15';
+import { cover,detailHTML,escapeHTML,categoryName,spotlightHTML } from './content.js?v=16';
 import { createPostSource } from './post-source.js?v=10';
 import {initPlayers} from './media.js?v=14';
 const source=createPostSource();
@@ -30,10 +30,17 @@ function renderFilters(){
  for(const button of filters.children)button.setAttribute('aria-pressed',String(button.dataset.category===category));
 }
 function renderPosts(){
- const list=sortPinnedPosts(filterPosts(posts,$('#search-input').value,category));
+ const query=$('#search-input').value.trim(),list=sortPinnedPosts(filterPosts(posts,query,category));
  $('#result-count').textContent=`${list.length} bài viết`;
  $('#post-grid').innerHTML=list.map(p=>cardHTML(p)).join('');
  $('#empty-state').hidden=list.length>0;
+ if(list.length)return;
+ const categoryHasPosts=category==='all'?posts.some(post=>post.status==='published'&&!post.deleted_at):posts.some(post=>post.status==='published'&&!post.deleted_at&&post.category===category);
+ const comingSoon=!query&&!categoryHasPosts;
+ $('#empty-state-icon').textContent=comingSoon?'✦':'⌕';
+ $('#empty-state-title').textContent=comingSoon?'Coming soon':'Không tìm thấy nội dung bạn đang tìm';
+ $('#empty-state-description').textContent=comingSoon?'Nội dung đang được chuẩn bị. Hãy quay lại sau nhé!':'Thử từ khóa khác hoặc xóa bộ lọc để xem thêm nội dung.';
+ $('#feedback-request').hidden=!query;
 }
 function renderHighlights(config){
  const available=new Map(posts.filter(post=>post.status==='published'&&!post.deleted_at).map(post=>[post.id,post]));
@@ -118,8 +125,9 @@ $('#category-filters').addEventListener('click',e=>{const b=e.target.closest('[d
 $('#search-input').addEventListener('input',renderPosts);
 $('#reset-filters').addEventListener('click',()=>{category='all';$('#search-input').value='';renderFilters();renderPosts();$('#search-input').focus();});
 for(const link of document.querySelectorAll('[data-local-admin]'))link.hidden=!source.local;
-$('#feedback-open').addEventListener('click',async()=>{
+async function openFeedback(searchTerm=''){
  const dialog=$('#feedback-dialog');dialog.showModal();$('#feedback-notice').textContent='Đang mở biểu mẫu…';
+ const context=$('#feedback-context');context.hidden=!searchTerm;context.textContent=searchTerm?`Đề xuất của bạn: “${searchTerm}”. Hãy thêm nội dung này vào tiêu đề biểu mẫu.`:'';
  let value=$('#feedback-open').dataset.feedbackFormUrl||'';
  if(source.local){try{const response=await fetch('/api/site-settings',{cache:'no-store'});if(response.ok)value=(await response.json()).feedbackFormUrl||'';}catch{}}
  if(!dialog.open)return;
@@ -130,7 +138,9 @@ $('#feedback-open').addEventListener('click',async()=>{
  if(url.hostname==='docs.google.com'){
    url.searchParams.set('embedded','true');const frame=document.createElement('iframe');frame.src=url.href;frame.title='Biểu mẫu góp ý Google Forms';frame.referrerPolicy='no-referrer';$('#feedback-frame').append(frame);
  }
-});
+}
+$('#feedback-open').addEventListener('click',()=>openFeedback());
+$('#feedback-request').addEventListener('click',()=>openFeedback($('#search-input').value.trim()));
 $('#feedback-close').addEventListener('click',()=>{$('#feedback-dialog').close();$('#feedback-frame').replaceChildren();});
 $('#feedback-dialog').addEventListener('close',()=>$('#feedback-frame').replaceChildren());
 window.addEventListener('hashchange',route);renderFilters();load();route();enter($('#spotlight').hidden?$('.hero-copy'):$('#spotlight .spotlight-copy'),6);

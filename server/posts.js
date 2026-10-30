@@ -2,7 +2,7 @@ export const categories = ['film', 'game', 'music', 'app', 'other'];
 import { isUploadPath,CONTENT_FIELDS,LEGACY_CONTENT_FIELDS,MEDIA_TYPES,directMediaURL,drivePreview } from '../js/media.js';
 export class InputError extends Error {}
 export function validatePin(body){
-  if(!body||![true,false,0,1].includes(body.is_pinned)||!Number.isInteger(body.pin_order)||body.pin_order<0||body.pin_order>9999)throw new InputError('Thông tin ghim không hợp lệ; thứ tự từ 0 đến 9999.');
+  if(!body||![true,false,0,1].includes(body.is_pinned)||!Number.isInteger(body.pin_order)||body.pin_order<0||body.pin_order>9999||(Number(body.is_pinned)===1&&(body.pin_order<1||body.pin_order>20)))throw new InputError('Thông tin ghim không hợp lệ. Bài được ghim cần vị trí từ 1 đến 20.');
   return{is_pinned:Number(body.is_pinned),pin_order:body.pin_order};
 }
 export function validateHighlightConfig(body,db){
@@ -53,6 +53,11 @@ export function validatePost(body) {
     return isUploadPath(value)?value:httpsUrl(value, 'images');
   });
   const pin=Object.hasOwn(body,'is_pinned')||Object.hasOwn(body,'pin_order')?validatePin(body):{};
+  const install_size=Object.hasOwn(body,'install_size')?freeText(body,'install_size',160):undefined;
+  const hasOperatingSystems=Object.hasOwn(body,'operating_systems');
+  const operating_systems=hasOperatingSystems?body.operating_systems:[];
+  const supportedOperatingSystems=new Set(['Windows','iOS','Linux']);
+  if(!Array.isArray(operating_systems)||operating_systems.length>3||operating_systems.some(value=>!supportedOperatingSystems.has(value))||new Set(operating_systems).size!==operating_systems.length)throw new InputError('Hệ điều hành hỗ trợ không hợp lệ.');
   const metadata={};if(Object.hasOwn(body,'metadata')){
     const value=body.metadata,fields=new Map([...Object.values(CONTENT_FIELDS),...Object.values(LEGACY_CONTENT_FIELDS)].flat().map(field=>[field[0],field]));
     if(!value||typeof value!=='object'||Array.isArray(value)||Object.keys(value).length>fields.size)throw new InputError('Metadata phải là object gồm các trường hỗ trợ.');
@@ -78,5 +83,5 @@ export function validatePost(body) {
       }else throw new InputError('Loại nguồn phát không hợp lệ.');
     }
   }
-  return { title, slug, category: body.category, description, introduction, instructions, cover_url, images, attachment_url, drive_file_id, media_url, status: body.status,...pin,...(Object.hasOwn(body,'metadata')?{metadata}:{}),...(Object.hasOwn(body,'media_sources')?{media_sources}:{}),...(Object.hasOwn(body,'minimum_requirements')?{minimum_requirements:freeText(body,'minimum_requirements',20000)}:{}),...(Object.hasOwn(body,'recommended_requirements')?{recommended_requirements:freeText(body,'recommended_requirements',20000)}:{}) };
+  return { title, slug, category: body.category, description, introduction, instructions, cover_url, images, attachment_url, drive_file_id, media_url, status: body.status,...(install_size===undefined?{}:{install_size}),...(hasOperatingSystems?{operating_systems}:{}),...pin,...(Object.hasOwn(body,'metadata')?{metadata}:{}),...(Object.hasOwn(body,'media_sources')?{media_sources}:{}),...(Object.hasOwn(body,'minimum_requirements')?{minimum_requirements:freeText(body,'minimum_requirements',20000)}:{}),...(Object.hasOwn(body,'recommended_requirements')?{recommended_requirements:freeText(body,'recommended_requirements',20000)}:{}) };
 }

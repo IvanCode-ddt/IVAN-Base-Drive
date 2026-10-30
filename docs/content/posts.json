@@ -11,6 +11,8 @@
       "instructions": "1.Tải và giải nén file sekiro.rar \n2.Tìm và chạy Sekiro.exe để khởi động game\n\n\nIngame: Tắt HDR trong cài đặt đồ họa trong game để hết bị mờ/đục trắng.",
       "minimum_requirements": "• Hệ điều hành: Windows 7 / Windows 8 / Windows 10 (Yêu cầu phiên bản 64-bit)\n• Bộ vi xử lý (CPU): Intel Core i3-2100 hoặc AMD FX-6300\n• Bộ nhớ RAM: 4 GB RAM\n• Card đồ họa (GPU): NVIDIA GeForce GTX 760 hoặc AMD Radeon HD 7950\n• DirectX: Phiên bản 11\n• Dung lượng ổ cứng: Trống tối thiểu 25 GB",
       "recommended_requirements": "• Hệ điều hành: Windows 10 / Windows 11 (Yêu cầu phiên bản 64-bit)\n• Bộ vi xử lý (CPU): Intel Core i5-2500K hoặc AMD Ryzen 5 1400\n• Bộ nhớ RAM: 8 GB RAM\n• Card đồ họa (GPU): NVIDIA GeForce GTX 970 hoặc AMD Radeon RX 570\n• DirectX: Phiên bản 11\n• Dung lượng ổ cứng: Trống tối thiểu 25 GB (Nên dùng ổ ổ cứng SSD để giảm thời gian tải bản đồ khi nhân vật hồi sinh)",
+      "install_size": "",
+      "operating_systems": [],
       "cover_url": "uploads/0a47052d-ac7d-4ba4-8a40-5d27bc548ecc.webp",
       "images": [
         "uploads/9661db3a-7fbb-4df7-88f2-84c0116eb90d.webp",
@@ -50,6 +52,8 @@
       "instructions": "Để file Việt Nam.json vào thư mục chứa json lang của game / thư mục chứa game.",
       "minimum_requirements": "",
       "recommended_requirements": "",
+      "install_size": "",
+      "operating_systems": [],
       "cover_url": "",
       "images": [],
       "attachment_url": "",
@@ -87,6 +91,8 @@
       "instructions": "",
       "minimum_requirements": "",
       "recommended_requirements": "",
+      "install_size": "",
+      "operating_systems": [],
       "cover_url": "uploads/e3001ef0-517f-43f4-9aaa-3df7a0e850c2.webp",
       "images": [
         "uploads/495233ec-60bf-4dcf-93de-4bd24e93fc8a.webp"

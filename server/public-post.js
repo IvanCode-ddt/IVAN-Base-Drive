@@ -10,10 +10,12 @@ function publicURL(value) {
 }
 export function publicPost(post) {
   if (!post || post.status !== 'published' || post.deleted_at) return null;
+  const operatingSystems=Array.isArray(post.operating_systems)?post.operating_systems:typeof post.operating_systems==='string'?JSON.parse(post.operating_systems):[];
   return {
     id:post.id, slug:post.slug, title:post.title, category:post.category,
     description:post.description, introduction:post.introduction, instructions:post.instructions,
     minimum_requirements:post.minimum_requirements||'',recommended_requirements:post.recommended_requirements||'',
+    install_size:post.install_size||'',operating_systems:operatingSystems.filter(value=>['Windows','iOS','Linux'].includes(value)),
     cover_url:isUploadPath(post.cover_url)?post.cover_url:publicURL(post.cover_url), images:(post.images || []).map(value=>isUploadPath(value)?value:publicURL(value)).filter(Boolean),
     attachment_url:publicURL(post.attachment_url), media_url:directMediaURL(post.media_url),
     status:'published', created_at:post.created_at, updated_at:post.updated_at,
