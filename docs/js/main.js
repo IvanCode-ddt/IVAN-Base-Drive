@@ -102,6 +102,13 @@ async function route(){
   if(returning){window.scrollTo(0,libraryScroll);$('#collection-title').setAttribute('tabindex','-1');$('#collection-title').focus({preventScroll:true});}
  }
 }
+$('#detail-view').addEventListener('click',event=>{
+ const jump=event.target.closest('[data-download-jump]');
+ if(!jump)return;
+ const panel=$('#download-panel');
+ panel?.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'});
+ panel?.focus({preventScroll:true});
+});
 async function load(){
  $('#result-count').textContent='Đang tải…';$('#empty-state').hidden=true;
  try{posts=await source.list();renderPosts();$('#library-status').hidden=true;try{renderHighlights(await source.highlights());}catch(error){console.error('Không tải được cấu hình Highlight:',error);renderHighlights(null);}}

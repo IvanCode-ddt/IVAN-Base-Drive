@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 import express from 'express';
 import sharp from 'sharp';
-import {mkdtemp,mkdir,cp,copyFile,rm} from 'node:fs/promises';
+import {mkdtemp,mkdir,cp,copyFile,readFile,rm} from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import {openDatabase} from '../server/database.js';
@@ -15,15 +15,20 @@ test('Highlight carousel preserves four image ratios, controls motion accessibly
  const directory=await mkdtemp(path.join(os.tmpdir(),'ivan-highlight-browser-')),source=path.join(directory,'source'),site=path.join(directory,'site'),filename=path.join(directory,'db.sqlite');
  for(const folder of ['js','css','images'])await cp(folder,path.join(source,folder),{recursive:true});
  await mkdir(path.join(source,'uploads'),{recursive:true});await copyFile('index.html',path.join(source,'index.html'));
- const db=openDatabase(filename),dimensions=[[1600,900],[1200,900],[1000,1000],[900,1600]],slides=[];
+ const db=openDatabase(filename),dimensions=[[1600,900],[1200,900],[1000,1000],[900,1600]],slides=[],galleryImages=['https://images.example.test/gallery-landscape.webp','https://images.example.test/gallery-portrait.webp'],galleryBuffers=new Map();
  const posts=[];
  for(let index=0;index<dimensions.length;index++){
   const [width,height]=dimensions[index],id=`12345678-1234-1234-1234-123456789ab${index}`,cover=`uploads/${id}.webp`;
   await sharp({create:{width,height,channels:3,background:['#365b44','#49577a','#735942','#653d52'][index]}}).webp().toFile(path.join(source,cover));
-  const post=db.create(validatePost({title:`Highlight ${index+1}`,slug:`highlight-${index+1}`,category:'game',description:'Slide description',cover_url:cover,images:[],status:'published',is_pinned:index===1,pin_order:0}));
+  const images=index===0?galleryImages:[];
+  if(index===0){
+   galleryBuffers.set(images[0],await sharp({create:{width:1600,height:900,channels:3,background:'#345645'}}).webp().toBuffer());
+   galleryBuffers.set(images[1],await sharp({create:{width:900,height:1600,channels:3,background:'#673e54'}}).webp().toBuffer());
+  }
+  const post=db.create(validatePost({title:`Highlight ${index+1}`,slug:`highlight-${index+1}`,category:'game',description:'Slide description',cover_url:cover,images,status:'published',is_pinned:index===1,pin_order:0}));
   posts.push(post);slides.push({post_id:post.id,enabled:true});
  }
- const sekiro=db.create(validatePost({title:'Sekiro™: Shadows Die Twice - GOTY Edition (Việt hóa sẵn)',slug:'sekiro',category:'game',description:'Published',images:[],status:'published'}));
+ const sekiro=db.create(validatePost({title:'Sekiro™: Shadows Die Twice - GOTY Edition (Việt hóa sẵn)',slug:'sekiro',category:'game',description:'Published',images:[],status:'published',is_pinned:true,pin_order:1}));
  const draft=db.create(validatePost({title:'Draft secret',slug:'draft-secret',category:'game',description:'Must stay private',images:[],status:'draft'}));
  db.saveHighlightConfig({enabled:true,interval_seconds:3,slides});
  const config={baseUrl:'http://localhost:3000',redirectUri:'http://localhost:3000/auth/google/callback',adminEmail:'admin@example.test',clientId:'test',clientSecret:'test',sessionSecret:'x'.repeat(48),databasePath:filename};
@@ -34,9 +39,11 @@ test('Highlight carousel preserves four image ratios, controls motion accessibly
  let browser;
  try{
   await exportStatic({databasePath:filename,sourceDir:source,outputDir:site});
+  assert.ok((await readFile(path.join(site,'css/style.css'),'utf8')).includes('object-fit:contain'));
   browser=await chromium.launch({headless:true});
   const context=await browser.newContext({viewport:{width:1440,height:1000}}),page=await context.newPage(),imageRequests=[];
   await page.clock.install();
+  await page.route('https://images.example.test/**',route=>route.fulfill({contentType:'image/webp',body:galleryBuffers.get(route.request().url())}));
   page.on('request',request=>{if(/spotlight-.*\.webp/.test(request.url()))imageRequests.push(request.url());});
   await page.goto(config.baseUrl+'/site/');await page.locator('#spotlight-title-0').waitFor();
   assert.equal(await page.locator('[data-highlight-slide]').count(),4);
@@ -74,9 +81,29 @@ test('Highlight carousel preserves four image ratios, controls motion accessibly
   await db.saveHighlightConfig({enabled:true,interval_seconds:3,slides});await exportStatic({databasePath:filename,sourceDir:source,outputDir:site});await page.reload();await page.locator('#spotlight-title-0').waitFor();
   await page.setViewportSize({width:390,height:844});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true);
   assert.equal(await frame.evaluate(element=>element.getBoundingClientRect().height),420);
+  await page.goto(config.baseUrl+'/site/#post/highlight-1');await page.locator('#detail-view .image-gallery img').first().waitFor();
+  for(const width of [1366,1440,1920]){
+   await page.setViewportSize({width,height:1000});
+   const layout=await page.locator('#main.shell').evaluate(element=>({width:element.getBoundingClientRect().width,scrollWidth:document.documentElement.scrollWidth}));
+   assert.ok(layout.width<=1360&&layout.width>1200,`unexpected desktop shell width at ${width}px: ${layout.width}`);
+   assert.ok(layout.scrollWidth<=width+1,`horizontal overflow at ${width}px`);
+  }
+  const gallery=page.locator('#detail-view .image-gallery img');
+  await gallery.first().evaluate(image=>image.decode());await gallery.nth(1).evaluate(image=>image.decode());
+  assert.deepEqual(await gallery.evaluateAll(images=>images.map(image=>getComputedStyle(image).objectFit)),['contain','contain']);
+  assert.ok(await gallery.nth(1).evaluate(image=>image.getBoundingClientRect().height<=250));
+  assert.ok(await page.locator('#detail-view .detail-section').evaluateAll(sections=>sections.findIndex(section=>section.textContent.includes('Hướng dẫn cài đặt'))<sections.findIndex(section=>section.textContent.includes('Hình ảnh minh họa'))));
+  await page.setViewportSize({width:390,height:844});await page.locator('[data-download-jump]').click();
+  assert.equal(await page.locator('#download-panel').evaluate(element=>element===document.activeElement),true);
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true);
 
-  const adminPage=await context.newPage();await adminPage.goto(config.baseUrl+'/auth/google');await adminPage.goto(config.baseUrl+'/admin/highlights.html');await adminPage.locator('#highlight-slides .highlight-slide-row').first().waitFor();
-  assert.equal(await adminPage.locator('.highlight-preview .spotlight-cover').first().evaluate(image=>getComputedStyle(image).pointerEvents),'none');
+  const anonymousPage=await browser.newPage();await anonymousPage.goto(config.baseUrl+'/admin/highlights.html');assert.equal(new URL(anonymousPage.url()).pathname,'/login');
+  assert.equal((await anonymousPage.request.get(config.baseUrl+'/api/admin/posts')).status(),401);await anonymousPage.close();
+  const adminPage=await context.newPage();await adminPage.goto(config.baseUrl+'/auth/google');const adminResponse=await adminPage.goto(config.baseUrl+'/admin/highlights.html');assert.equal(adminResponse.status(),200);await adminPage.locator('#highlight-slides .highlight-slide-row').first().waitFor();
+  const previewFrame=adminPage.locator('#highlight-preview .spotlight');
+  assert.equal(await previewFrame.evaluate(element=>getComputedStyle(element).position),'relative');
+  assert.equal(await previewFrame.evaluate(element=>getComputedStyle(element).overflow),'hidden');
+  assert.equal(await adminPage.locator('#highlight-preview .spotlight-slide').count(),4);
   assert.equal(await adminPage.locator('#highlight-add-post option').count(),2);
   await adminPage.locator('#highlight-interval').fill('7');await adminPage.locator('#highlight-slides [data-move="1"]').first().click();
   await adminPage.locator('#highlight-slides [data-slide-enabled]').first().uncheck();
@@ -86,6 +113,13 @@ test('Highlight carousel preserves four image ratios, controls motion accessibly
   await adminPage.locator('#highlight-save').click();await adminPage.locator('.admin-toast-region .admin-toast').getByText('Đã lưu cấu hình Highlight.').waitFor();
   assert.equal(db.highlightConfig().slides.length,5);assert.ok(db.highlightConfig().slides.some(slide=>slide.post_id===sekiro.id));
   await adminPage.goto(config.baseUrl+'/admin/');await adminPage.locator('#post-table .dashboard-row').first().waitFor();
+  const sekiroPin=adminPage.locator('#post-table .dashboard-row').filter({hasText:'Sekiro™: Shadows Die Twice'}).locator('[data-pin]');
+  await sekiroPin.click();await adminPage.locator('.admin-toast').getByText(/Đã bỏ ghim/).waitFor();
+  assert.equal(db.get(sekiro.id).is_pinned,0);assert.ok(db.highlightConfig().slides.some(slide=>slide.post_id===sekiro.id));
+  await adminPage.goto(config.baseUrl+'/admin/highlights.html');await adminPage.locator('#highlight-slides [data-slide]').filter({hasText:'Sekiro™: Shadows Die Twice'}).locator('[data-remove-slide]').click();
+  await adminPage.locator('#highlight-save').click();await adminPage.locator('.admin-toast-region .admin-toast').getByText('Đã lưu cấu hình Highlight.').waitFor();
+  assert.ok(db.get(sekiro.id));assert.ok(!db.highlightConfig().slides.some(slide=>slide.post_id===sekiro.id));
+  await adminPage.goto(config.baseUrl+'/admin/');
   const pinned=adminPage.locator('#post-table [data-pin]').first();await pinned.click();await adminPage.locator('.admin-toast').getByText(/Đã ghim/).waitFor();
   const deleteButton=adminPage.locator('#post-table [data-delete]').first();await deleteButton.click();
   const dialog=adminPage.locator('.action-dialog');await dialog.waitFor({state:'visible'});assert.ok((await dialog.locator('.action-post-title').textContent()).trim().length>0);

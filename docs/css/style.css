@@ -91,3 +91,21 @@
 .requirements-card--recommended h3{color:var(--accent)}
 .requirements-card p{margin:0;color:#c0c6d0;white-space:pre-wrap;overflow-wrap:anywhere}
 .requirements-card--recommended p{color:#d8e6c6}
+.public-site .shell{max-width:1360px}
+.public-site .detail-layout>div:first-child .markdown-content{max-width:76ch}
+.public-site .image-gallery img{height:250px;object-fit:contain;background:#12151a}
+.public-site .download-file-list{display:grid;gap:14px;padding:0;list-style:none}
+.public-site .download-file{min-width:0;padding:14px;border:1px solid var(--line);border-radius:10px;background:#14171c}
+.public-site .download-file>strong{display:block;overflow-wrap:anywhere}
+.public-site .download-file .file-download-actions{margin-bottom:0}
+.public-site .file-details{border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.public-site .file-details summary{cursor:pointer;font-weight:650}
+.public-site .file-details article{padding-top:10px}
+.public-site .file-details h3{font-size:15px}
+.public-site .mobile-download-jump{display:none}
+@media(max-width:900px){.public-site .shell{padding-left:24px;padding-right:24px}}
+@media(max-width:600px){
+ .public-site .shell{padding-left:20px;padding-right:20px}
+ .public-site .mobile-download-jump{display:inline-flex;margin-top:8px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--text);cursor:pointer}
+ .public-site .image-gallery img{height:210px}
+}

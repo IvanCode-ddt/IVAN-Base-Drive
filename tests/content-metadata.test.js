@@ -11,6 +11,20 @@ import path from 'node:path';
 import os from 'node:os';
 import {exportStatic} from '../scripts/export-static.mjs';
 const base={title:'Old title',slug:'old-title',category:'app',description:'Description',images:[],status:'published'};
+test('detail view keeps every public file download in the sidebar and orders the gallery after instructions',()=>{
+ const html=detailHTML({...base,title:'Sekiro',category:'game',introduction:'Giới thiệu',instructions:'Hướng dẫn',images:['https://images.example.test/wide.webp','https://images.example.test/portrait.webp'],drive_files:[
+  {file_id:'archive-one',name:'Sekiro.rar',mime_type:'application/zip',size:'1024',can_download:1,download_url:'https://drive.google.com/uc?id=archive-one',web_url:'https://drive.google.com/file/d/archive-one/view',sharing_confirmed:1,sharing_access:'anyone'},
+  {file_id:'archive-two',name:'Patch.zip',mime_type:'application/zip',size:'2048',can_download:1,download_url:'https://drive.google.com/uc?id=archive-two',web_url:'https://drive.google.com/file/d/archive-two/view',sharing_confirmed:1,sharing_access:'anyone'}
+ ]});
+ const instructions=html.indexOf('Hướng dẫn cài đặt'),gallery=html.indexOf('Hình ảnh minh họa'),details=html.indexOf('<summary>Chi tiết tệp</summary>');
+ assert.ok(instructions<gallery&&gallery<details);
+ assert.equal((html.match(/https:\/\/drive\.google\.com\/uc\?id=archive-one/g)||[]).length,1);
+ assert.equal((html.match(/https:\/\/drive\.google\.com\/uc\?id=archive-two/g)||[]).length,1);
+ assert.ok(html.includes('Sekiro.rar')&&html.includes('Patch.zip'));
+ assert.ok(html.includes('data-download-jump'));
+ assert.equal((html.match(/loading="lazy"/g)||[]).length,2);
+ assert.ok(!html.includes('<details class="detail-section file-details" open'));
+});
 test('optional metadata validation, persistence, legacy updates and category allowlist',t=>{
  const db=openDatabase(':memory:');t.after(()=>db.close());const saved=db.create(validatePost({...base,metadata:{version:'2.0',platform:'Windows 11',artist:'Private irrelevant field'}}));
  assert.equal(db.get(saved.id).metadata.version,'2.0');db.update(saved.id,validatePost(base));assert.equal(db.get(saved.id).metadata.version,'2.0');

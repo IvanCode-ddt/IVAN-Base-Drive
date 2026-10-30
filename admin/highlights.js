@@ -20,7 +20,7 @@ function render(){
 function renderPreview(){
  const eligible=config.slides.filter(slide=>slide.enabled&&posts.some(post=>post.id===slide.post_id&&post.status==='published'));
  const preview=$('#highlight-preview');
- preview.innerHTML=eligible.map((slide,index)=>spotlightHTML(posts.find(post=>post.id===slide.post_id),{active:index===0,index})).join('');
+ preview.innerHTML=eligible.length?`<div id="spotlight" class="spotlight" aria-label="Xem trước Highlight">${eligible.map((slide,index)=>spotlightHTML(posts.find(post=>post.id===slide.post_id),{active:index===0,index})).join('')}</div>`:'';
  preview.hidden=!eligible.length;
  $('#highlight-preview-status').textContent=eligible.length?`${eligible.length} slide đang bật${config.enabled?'':' · carousel hiện đang tắt'}`:'Chưa có slide đang bật để xem trước.';
 }
