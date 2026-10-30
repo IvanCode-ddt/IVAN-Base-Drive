@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "albums": [
+    {
+      "post_id": "5c2de59c-544e-4af6-91f2-90836c29ba2d",
+      "slug": "hvl-mck",
+      "title": "HVL-MCK",
+      "description": "HVL là album phòng thu thứ hai của rapper MCK (Nghiêm Vũ Hoàng Long), được phát hành bất ngờ vào ngày 17/06/2026 thông qua N0L4B3L COLLECTIVE.",
+      "cover_url": "uploads/c218a894-5837-4bbd-ac02-90ea5a9a7cff.webp",
+      "updated_at": "2026-10-30T23:42:17.747Z",
+      "is_pinned": false,
+      "pin_order": 0,
+      "artist": "MCK",
+      "bundle_downloads": [
+        {
+          "name": "MCK - 99% HVL - Album FLAC - (Lossless).zip",
+          "download_url": "https://drive.google.com/uc?id=1GJ16cLZwjIJPZRuhXHN2Vcl0f98cgEJL&export=download",
+          "open_url": "https://drive.google.com/file/d/1GJ16cLZwjIJPZRuhXHN2Vcl0f98cgEJL/view?usp=drivesdk"
+        }
+      ]
+    }
+  ]
+}

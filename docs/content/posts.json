@@ -2,6 +2,44 @@
   "schemaVersion": 1,
   "posts": [
     {
+      "id": "5c2de59c-544e-4af6-91f2-90836c29ba2d",
+      "slug": "hvl-mck",
+      "title": "HVL-MCK",
+      "category": "music",
+      "description": "HVL là album phòng thu thứ hai của rapper MCK (Nghiêm Vũ Hoàng Long), được phát hành bất ngờ vào ngày 17/06/2026 thông qua N0L4B3L COLLECTIVE.",
+      "introduction": "",
+      "instructions": "",
+      "minimum_requirements": "",
+      "recommended_requirements": "",
+      "install_size": "",
+      "operating_systems": [],
+      "cover_url": "uploads/c218a894-5837-4bbd-ac02-90ea5a9a7cff.webp",
+      "images": [],
+      "attachment_url": "",
+      "media_url": "",
+      "status": "published",
+      "created_at": "2026-10-30T23:17:07.581Z",
+      "updated_at": "2026-10-30T23:42:17.747Z",
+      "is_pinned": false,
+      "pin_order": 0,
+      "is_spotlight": false,
+      "metadata": {},
+      "media_sources": [],
+      "drive_files": [
+        {
+          "file_id": "1GJ16cLZwjIJPZRuhXHN2Vcl0f98cgEJL",
+          "name": "MCK - 99% HVL - Album FLAC - (Lossless).zip",
+          "mime_type": "application/x-zip-compressed",
+          "size": "2083514913",
+          "modified_time": "2026-10-30T22:21:42.387Z",
+          "web_url": "https://drive.google.com/file/d/1GJ16cLZwjIJPZRuhXHN2Vcl0f98cgEJL/view?usp=drivesdk",
+          "download_url": "https://drive.google.com/uc?id=1GJ16cLZwjIJPZRuhXHN2Vcl0f98cgEJL&export=download",
+          "can_download": 1
+        }
+      ],
+      "content_type": "music_album"
+    },
+    {
       "id": "bb4a76a0-0754-4659-a19e-f874c94cabce",
       "slug": "sekiro-shadows-die-twice-goty-edition-viet-hoa-san",
       "title": "Sekiro™: Shadows Die Twice - GOTY Edition (Việt hóa sẵn)",
