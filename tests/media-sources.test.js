@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtemp,rm,readFile,readdir,mkdir} from 'node:fs/promises';
+import {mkdtemp,rm,readFile,readdir,mkdir,cp,copyFile} from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import sharp from 'sharp';
@@ -42,18 +42,42 @@ test('v8 to v9 migration and metadata/media export preserve old data with a veri
   const backup=(await readdir(path.join(directory,'backups'))).find(name=>name.endsWith('.verified.json'));assert.equal(JSON.parse(await readFile(path.join(directory,'backups',backup),'utf8')).integrity,'ok');
  }finally{db?.close();await rm(directory,{recursive:true,force:true});}
 });
-test('Spotlight responsive images export and local routes are public only while the selected cover is Published',async()=>{
- const directory=await mkdtemp(path.join(os.tmpdir(),'ivan-spotlight-images-')),filename=path.join(directory,'db.sqlite'),uploads=path.join(directory,'uploads'),id='12345678-1234-1234-1234-123456789abc';let db;
+test('Highlight responsive images preserve source ratio in local routes and static export',async()=>{
+ const directory=await mkdtemp(path.join(os.tmpdir(),'ivan-highlight-images-')),filename=path.join(directory,'db.sqlite'),uploads=path.join(directory,'uploads'),id='12345678-1234-1234-1234-123456789abc';let db;
  try{
   await mkdir(uploads);await sharp({create:{width:1200,height:800,channels:3,background:'#354b38'}}).webp().toFile(path.join(uploads,id+'.webp'));
-  db=openDatabase(filename);const saved=db.create(validatePost({...body,cover_url:`uploads/${id}.webp`,is_spotlight:true}));
+  db=openDatabase(filename);const saved=db.create(validatePost({...body,cover_url:`uploads/${id}.webp`}));
+  db.saveHighlightConfig({enabled:true,interval_seconds:6,slides:[{post_id:saved.id,enabled:true}]});
   const config={baseUrl:'http://localhost:3000',adminEmail:'admin@example.test',clientId:'test',clientSecret:'test',sessionSecret:'x'.repeat(40)};
-  const app=createApp({config,db,uploadDir:uploads});const response=await request(app).get(`/images/spotlight-${id}-640.webp`).expect(200);assert.equal((await sharp(response.body).metadata()).width,640);
+  const app=createApp({config,db,uploadDir:uploads});const response=await request(app).get(`/images/spotlight-${id}-640.webp`).expect(200);const localMetadata=await sharp(response.body).metadata();assert.equal(localMetadata.width,640);assert.ok(Math.abs(localMetadata.width/localMetadata.height-1.5)<.01);
   const output=path.join(directory,'site');
   // SourceDir uses its upload folder; use a complete fixture with this upload for export.
   const source=path.join(directory,'source');await mkdir(source);const {copyFile,cp}=await import('node:fs/promises');await copyFile('index.html',path.join(source,'index.html'));for(const dir of ['js','css','images'])await cp(dir,path.join(source,dir),{recursive:true});await cp(uploads,path.join(source,'uploads'),{recursive:true});
-  await exportStatic({databasePath:filename,sourceDir:source,outputDir:output});for(const width of [640,960,1440])assert.equal((await sharp(await readFile(path.join(output,`images/spotlight-${id}-${width}.webp`))).metadata()).width,width);
+  await exportStatic({databasePath:filename,sourceDir:source,outputDir:output});for(const width of [640,960,1440]){const metadata=await sharp(await readFile(path.join(output,`images/spotlight-${id}-${width}.webp`))).metadata();assert.equal(metadata.width,width);assert.ok(Math.abs(metadata.width/metadata.height-1.5)<.01);}
   db.update(saved.id,validatePost({...body,status:'draft',cover_url:`uploads/${id}.webp`}));await request(app).get(`/images/spotlight-${id}-640.webp`).expect(404);
   await exportStatic({databasePath:filename,sourceDir:source,outputDir:output});assert.ok(!(await readdir(path.join(output,'images'))).some(name=>name.startsWith('spotlight-'+id)));
  }finally{db?.close();await rm(directory,{recursive:true,force:true,maxRetries:5,retryDelay:100});}
+});
+test('Highlight exports keep 16:9, 4:3, square and portrait artwork intact',async()=>{
+ const directory=await mkdtemp(path.join(os.tmpdir(),'ivan-highlight-ratios-')),filename=path.join(directory,'db.sqlite'),source=path.join(directory,'source'),uploads=path.join(source,'uploads'),output=path.join(directory,'docs');let db;
+ try{
+  for(const folder of ['js','css','images'])await cp(folder,path.join(source,folder),{recursive:true});
+  await mkdir(uploads,{recursive:true});await copyFile('index.html',path.join(source,'index.html'));
+  db=openDatabase(filename);const ratios=[[1600,900],[1200,900],[1000,1000],[900,1600]],slides=[];
+  for(let index=0;index<ratios.length;index++){
+   const [width,height]=ratios[index],id=`12345678-1234-1234-1234-123456789ab${index}`;
+   await sharp({create:{width,height,channels:3,background:'#354b38'}}).webp().toFile(path.join(uploads,id+'.webp'));
+   const saved=db.create(validatePost({...body,title:`Ratio ${width}:${height}`,slug:`ratio-${index}`,cover_url:`uploads/${id}.webp`}));
+   slides.push({post_id:saved.id,enabled:true});
+  }
+  db.saveHighlightConfig({enabled:true,interval_seconds:6,slides});db.close();db=null;
+  await exportStatic({databasePath:filename,sourceDir:source,outputDir:output});
+  for(let index=0;index<ratios.length;index++){
+   const [width,height]=ratios[index],id=`12345678-1234-1234-1234-123456789ab${index}`,expected=width/height;
+   for(const size of [640,960,1440]){
+    const metadata=await sharp(await readFile(path.join(output,`images/spotlight-${id}-${size}.webp`))).metadata();
+    assert.ok(Math.abs(metadata.width/metadata.height-expected)<.01,`${width}x${height} became ${metadata.width}x${metadata.height}`);
+   }
+  }
+ }finally{db?.close();await rm(directory,{recursive:true,force:true});}
 });

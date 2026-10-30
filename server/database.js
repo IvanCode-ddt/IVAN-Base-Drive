@@ -9,8 +9,8 @@ export function openDatabase(filename) {
   if (filename !== ':memory:') mkdirSync(path.dirname(filename), { recursive: true });
   const db = new DatabaseSync(filename);
   const initialVersion=db.prepare('PRAGMA user_version').get().user_version;
-  if(initialVersion>9){db.close();throw new Error('Database mới hơn ứng dụng.');}
-  if(filename!==':memory:'&&initialVersion<9&&db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='posts'").get()){
+  if(initialVersion>10){db.close();throw new Error('Database mới hơn ứng dụng.');}
+  if(filename!==':memory:'&&initialVersion<10&&db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='posts'").get()){
     try{const saved=verifiedBackup(db,filename);console.log(`Verified pre-migration backup: ${saved.path} (${saved.postCount} posts; integrity ok)`);}catch(error){db.close();throw error;}
   }
   db.exec(`PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;
@@ -24,7 +24,7 @@ export function openDatabase(filename) {
       created_at TEXT NOT NULL, updated_at TEXT NOT NULL
     ); CREATE INDEX IF NOT EXISTS posts_status_updated ON posts(status, updated_at DESC);`);
   const version = db.prepare('PRAGMA user_version').get().user_version;
-  if (version > 9) { db.close(); throw new Error('Database mới hơn phiên bản ứng dụng. Không tự động hạ cấp.'); }
+  if (version > 10) { db.close(); throw new Error('Database mới hơn phiên bản ứng dụng. Không tự động hạ cấp.'); }
   if (version < 2) {
     db.exec('BEGIN IMMEDIATE');
     try {
@@ -99,14 +99,29 @@ export function openDatabase(filename) {
     if(!db.prepare('PRAGMA table_info(posts)').all().some(column=>column.name==='media_sources'))db.exec("ALTER TABLE posts ADD COLUMN media_sources TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(media_sources) AND json_type(media_sources)='array')");
     db.exec('PRAGMA user_version=9; COMMIT;');
   }catch(error){db.exec('ROLLBACK');db.close();throw error;}}
+  if(version<10){db.exec('BEGIN IMMEDIATE');try{
+    db.exec(`CREATE TABLE IF NOT EXISTS highlight_settings(
+      id INTEGER PRIMARY KEY CHECK(id=1),
+      enabled INTEGER NOT NULL DEFAULT 1 CHECK(enabled IN (0,1)),
+      interval_seconds INTEGER NOT NULL DEFAULT 6 CHECK(interval_seconds BETWEEN 3 AND 20)
+    );
+    CREATE TABLE IF NOT EXISTS highlight_slides(
+      post_id TEXT PRIMARY KEY REFERENCES posts(id) ON DELETE CASCADE,
+      position INTEGER NOT NULL CHECK(position BETWEEN 0 AND 19),
+      enabled INTEGER NOT NULL DEFAULT 1 CHECK(enabled IN (0,1))
+    );
+    INSERT OR IGNORE INTO highlight_settings(id,enabled,interval_seconds) VALUES(1,1,6);
+    INSERT OR IGNORE INTO highlight_slides(post_id,position,enabled)
+      SELECT id,0,1 FROM posts WHERE is_spotlight=1 AND status='published' AND deleted_at IS NULL;
+    UPDATE posts SET is_spotlight=0 WHERE is_spotlight=1;
+    PRAGMA user_version=10; COMMIT;`);
+  }catch(error){db.exec('ROLLBACK');db.close();throw error;}}
   const decode = row => row ? { ...row, images: JSON.parse(row.images),metadata:JSON.parse(row.metadata),media_sources:JSON.parse(row.media_sources), drive_files: linkedFiles(row.id) } : null;
   const columns = ['slug','title','category','description','introduction','instructions','cover_url','images','attachment_url','drive_file_id','media_url','status','is_pinned','pin_order','is_spotlight','metadata','media_sources'];
   const values = post => columns.map(key => ['images','metadata','media_sources'].includes(key) ? JSON.stringify(post[key]) : post[key]);
   const pinFields=(post,old)=>{
-    let is_spotlight=post.is_spotlight??old?.is_spotlight??0;
-    if(post.is_pinned===0&&post.is_spotlight===undefined)is_spotlight=0;
-    const is_pinned=is_spotlight?1:post.is_pinned??old?.is_pinned??0,pin_order=post.pin_order??old?.pin_order??0;
-    if(is_spotlight&&db.prepare('SELECT id FROM posts WHERE is_spotlight=1 AND deleted_at IS NULL AND id<>?').get(old?.id||''))throw new InputError('Đã có Spotlight chính. Bỏ Spotlight ở bài hiện tại trước khi chọn bài khác.');
+    const is_spotlight=0;
+    const is_pinned=post.is_pinned??old?.is_pinned??0,pin_order=post.pin_order??old?.pin_order??0;
     if(is_pinned===1&&db.prepare('SELECT COUNT(*) AS n FROM posts WHERE is_pinned=1 AND deleted_at IS NULL AND id<>?').get(old?.id||'').n>=5)throw new InputError('Tối đa 5 bài ghim. Hãy bỏ ghim một bài trước.');
     return{...post,is_pinned,pin_order,is_spotlight,metadata:post.metadata??old?.metadata??{},media_sources:post.media_sources??old?.media_sources??[]};
   };
@@ -115,6 +130,30 @@ export function openDatabase(filename) {
     linkedFiles,
     publicPost,
     feedbackState:key=>db.prepare('SELECT last_synced_at,row_count FROM feedback_sync_state WHERE source_key=?').get(key)||null,
+    highlightConfig({publicOnly=false}={}){
+      const settings=db.prepare('SELECT enabled,interval_seconds FROM highlight_settings WHERE id=1').get()||{enabled:1,interval_seconds:6};
+      const slides=db.prepare(`SELECT h.post_id,h.position,h.enabled,p.status,p.deleted_at
+        FROM highlight_slides h JOIN posts p ON p.id=h.post_id
+        ${publicOnly?"WHERE h.enabled=1 AND p.status='published' AND p.deleted_at IS NULL":''}
+        ORDER BY h.position,h.post_id`).all();
+      return{enabled:settings.enabled===1,interval_seconds:settings.interval_seconds,slides:slides.map(slide=>({
+        post_id:slide.post_id,position:slide.position,enabled:slide.enabled===1,
+        ...(publicOnly?{}:{status:slide.status,deleted_at:slide.deleted_at})
+      }))};
+    },
+    saveHighlightConfig(config){
+      db.exec('BEGIN IMMEDIATE');try{
+        for(const slide of config.slides){
+          const post=db.prepare("SELECT id FROM posts WHERE id=? AND status='published' AND deleted_at IS NULL").get(slide.post_id);
+          if(!post)throw new InputError('Chỉ thêm được bài viết Published còn hoạt động vào Highlight.');
+        }
+        db.prepare('UPDATE highlight_settings SET enabled=?,interval_seconds=? WHERE id=1').run(Number(config.enabled),config.interval_seconds);
+        db.prepare('DELETE FROM highlight_slides').run();
+        const insert=db.prepare('INSERT INTO highlight_slides(post_id,position,enabled) VALUES(?,?,?)');
+        config.slides.forEach((slide,position)=>insert.run(slide.post_id,position,Number(slide.enabled)));
+        const saved=this.highlightConfig();db.exec('COMMIT');return saved;
+      }catch(error){db.exec('ROLLBACK');throw error;}
+    },
     syncFeedback(key,rows){
       db.exec('BEGIN IMMEDIATE');try{
         const now=new Date().toISOString(),statement=db.prepare(`INSERT INTO feedback(id,source_key,source_row,received_at,type,title,detail,reference_url,contact_email,first_synced_at,last_synced_at)
@@ -171,15 +210,8 @@ export function openDatabase(filename) {
     softDelete(id){const now=new Date().toISOString();return db.prepare('UPDATE posts SET deleted_at=?,updated_at=? WHERE id=? AND deleted_at IS NULL').run(now,now,id).changes>0;},
     restore(id){const old=this.get(id,true);if(old?.deleted_at)pinFields(old,old);return db.prepare('UPDATE posts SET deleted_at=NULL,updated_at=? WHERE id=? AND deleted_at IS NOT NULL').run(new Date().toISOString(),id).changes>0;},
     setPin(id,is_pinned,pin_order){
-      db.exec('BEGIN IMMEDIATE');try{const old=this.get(id);if(!old){db.exec('ROLLBACK');return null;}const next=pinFields({...old,is_pinned,pin_order,is_spotlight:is_pinned===0?0:old.is_spotlight},old);
+      db.exec('BEGIN IMMEDIATE');try{const old=this.get(id);if(!old){db.exec('ROLLBACK');return null;}const next=pinFields({...old,is_pinned,pin_order},old);
         db.prepare('UPDATE posts SET is_pinned=?,pin_order=?,is_spotlight=?,updated_at=? WHERE id=?').run(next.is_pinned,next.pin_order,next.is_spotlight,new Date().toISOString(),id);
-        const result=this.get(id);db.exec('COMMIT');return result;
-      }catch(error){db.exec('ROLLBACK');throw error;}
-    },
-    setSpotlight(id,selected){
-      db.exec('BEGIN IMMEDIATE');try{const old=this.get(id);if(!old){db.exec('ROLLBACK');return null;}
-        const next=pinFields({...old,is_spotlight:Number(selected)},old);
-        db.prepare('UPDATE posts SET is_pinned=?,is_spotlight=?,updated_at=? WHERE id=?').run(next.is_pinned,next.is_spotlight,new Date().toISOString(),id);
         const result=this.get(id);db.exec('COMMIT');return result;
       }catch(error){db.exec('ROLLBACK');throw error;}
     },

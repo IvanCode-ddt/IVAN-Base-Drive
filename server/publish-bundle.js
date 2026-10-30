@@ -1,10 +1,10 @@
 import {readFile,readdir,lstat} from 'node:fs/promises';
 import path from 'node:path';
 import {createHash} from 'node:crypto';
-import {readPublished} from '../scripts/export-static.mjs';
+import {readPublished,readHighlights} from '../scripts/export-static.mjs';
 import {PublishError} from './publish-git.js';
 
-const fixed=new Set(['docs/index.html','docs/.nojekyll','docs/content/posts.json','docs/css/style.css',...['main','data','content','post-source','media','markdown'].map(name=>`docs/js/${name}.js`)]);
+const fixed=new Set(['docs/index.html','docs/.nojekyll','docs/content/posts.json','docs/content/highlights.json','docs/css/style.css',...['main','data','content','post-source','media','markdown'].map(name=>`docs/js/${name}.js`)]);
 export function allowedPublishPath(value){
  return fixed.has(value)||/^docs\/images\/[A-Za-z0-9_-]+\.(?:jpg|jpeg|png|webp|gif|avif|ico)$/i.test(value)||/^docs\/uploads\/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\.webp$/.test(value);
 }
@@ -28,6 +28,8 @@ export async function validateBundle({directory,databasePath,secrets=[],adminEma
  const payload=JSON.parse(await readFile(path.join(directory,'content/posts.json'),'utf8'));
  const expected={schemaVersion:1,posts:readPublished(databasePath)};
  if(JSON.stringify(payload)!==JSON.stringify(expected))throw new PublishError('DATA_CHANGED','Dữ liệu đã đổi hoặc bản xuất không khớp dữ liệu công khai.','Tạo bản xem trước mới trước khi đăng.');
+ const highlights=JSON.parse(await readFile(path.join(directory,'content/highlights.json'),'utf8'));
+ if(JSON.stringify(highlights)!==JSON.stringify(readHighlights(databasePath)))throw new PublishError('DATA_CHANGED','Cấu hình Highlight đã đổi hoặc bản xuất không khớp dữ liệu công khai.','Tạo bản xem trước mới trước khi đăng.');
  const json=JSON.stringify(payload);
  if(adminEmail&&json.toLowerCase().includes(adminEmail.toLowerCase()))throw new PublishError('PRIVATE_DATA','Bản xuất chứa email quản trị.','Xóa email khỏi nội dung công khai trước khi đăng.');
  const files=await bundleManifest(directory);

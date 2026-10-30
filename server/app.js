@@ -6,7 +6,7 @@ import { OAuth2Client } from 'google-auth-library';
 import { randomBytes, timingSafeEqual, createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import { validatePost,validatePin, InputError } from './posts.js';
+import { validatePost,validatePin,validateHighlightConfig, InputError } from './posts.js';
 import { DRIVE_SCOPE, DriveError } from './drive.js';
 import { registerDriveRoutes, selectedDriveFiles } from './drive-routes.js';
 import { oauthFailure } from './oauth-error.js';
@@ -93,6 +93,11 @@ export function createApp({ config, db, oauthClient, driveRequest, feedbackTrans
     }
   });
   app.get('/api/posts', (req,res) => { res.set('Cache-Control','no-store'); res.json(db.list(true).map(post => db.publicPost(post))); });
+  app.get('/api/highlights',(req,res)=>{
+    res.set('Cache-Control','no-store');
+    const config=db.highlightConfig({publicOnly:true});
+    res.json({...config,slides:config.slides.map(slide=>({...slide,post:db.publicPost(db.get(slide.post_id))})).filter(slide=>slide.post)});
+  });
   app.get('/api/site-settings',(req,res)=>res.set('Cache-Control','no-store').json({feedbackFormUrl:config.feedbackFormUrl||''}));
   app.get('/api/posts/:slug', (req,res) => { res.set('Cache-Control','no-store'); const post=db.publicPost(db.published(req.params.slug)); post ? res.json(post) : res.status(404).json({error:'Không tìm thấy bài viết.'}); });
   app.use('/api/admin', admin);
@@ -100,15 +105,22 @@ export function createApp({ config, db, oauthClient, driveRequest, feedbackTrans
   registerPublishRoutes(app,{config,csrf,publisher:publisher||createPublisher({root,databasePath:config.databasePath,adminEmail:config.adminEmail,secrets:[config.clientSecret,config.sessionSecret]})});
   registerMedia(app,{admin,csrf,db,uploadDir});
   registerDriveRoutes(app, {db,config,csrf,driveRequest,revokeToken:token => oauth.revokeToken(token)});
-  app.get('/api/admin/session', (req,res) => res.json({ email:req.session.admin.email, authMode:'google',supportsPinning:true,contentSchemaVersion:9,driveConnected:!!req.session.drive?.access_token&&req.session.drive.expiry_date>Date.now()+10000, csrfToken:req.session.csrf, saveContractVersion:2 }));
+  app.get('/api/admin/session', (req,res) => res.json({ email:req.session.admin.email, authMode:'google',supportsPinning:true,contentSchemaVersion:10,driveConnected:!!req.session.drive?.access_token&&req.session.drive.expiry_date>Date.now()+10000, csrfToken:req.session.csrf, saveContractVersion:2 }));
   app.get('/api/admin/posts', (req,res) => res.json(db.list()));
+  app.get('/api/admin/highlights',(req,res)=>{
+    const config=db.highlightConfig();
+    res.json({...config,slides:config.slides.map(slide=>{
+      const post=db.get(slide.post_id,true);
+      return{...slide,title:post?.title||'Bài đã xóa',status:post?.status||'deleted',deleted_at:post?.deleted_at||null};
+    })});
+  });
+  app.put('/api/admin/highlights',csrf,(req,res)=>{
+    const config=validateHighlightConfig(req.body,db);
+    res.json(db.saveHighlightConfig(config));
+  });
   app.patch('/api/admin/posts/:id/pin',csrf,(req,res)=>{
     const pin=validatePin(req.body),post=db.setPin(req.params.id,pin.is_pinned,pin.pin_order);
     return post?res.json(post):res.status(404).json({error:'Không tìm thấy bài viết.'});
-  });
-  app.patch('/api/admin/posts/:id/spotlight',csrf,(req,res)=>{
-    if(typeof req.body?.is_spotlight!=='boolean')throw new InputError('Spotlight cần giá trị true/false.');
-    const post=db.setSpotlight(req.params.id,req.body.is_spotlight);post?res.json(post):res.status(404).json({error:'Không tìm thấy bài viết.'});
   });
   app.get('/api/admin/trash',(req,res)=>res.json(db.trash()));
   app.get('/api/admin/settings',(req,res)=>res.json({email:config.adminEmail,driveRootId:config.driveRootId,exportCommand:'npm.cmd run export',postCount:db.list().length,trashCount:db.trash().length}));

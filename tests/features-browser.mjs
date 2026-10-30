@@ -11,7 +11,7 @@ import {validatePost} from '../server/posts.js';
 import {exportStatic} from '../scripts/export-static.mjs';
 import {DEFAULT_FEEDBACK_FORM_URL} from '../server/public-settings.js';
 
-test('desktop/mobile pin controls, featured filtering, Google Form dialog and safe feedback inbox',async()=>{
+test('desktop/mobile pinned feed, filters, Google Form dialog and safe feedback inbox',async()=>{
  const directory=await mkdtemp(path.join(os.tmpdir(),'ivan-features-browser-')),filename=path.join(directory,'db.sqlite'),site=path.join(directory,'site'),db=openDatabase(filename);
  const first=db.create(validatePost({title:'First game',slug:'first-game',category:'game',description:'Game description',images:[],status:'published'}));
  const second=db.create(validatePost({title:'Second film',slug:'second-film',category:'film',description:'Film description',images:[],status:'published'}));
@@ -26,18 +26,18 @@ test('desktop/mobile pin controls, featured filtering, Google Form dialog and sa
    db.setPin(first.id,1,5);db.setPin(second.id,0,0);await exportStatic({databasePath:filename,outputDir:site});
    const context=await browser.newContext({viewport}),page=await context.newPage(),errors=[];page.on('pageerror',error=>errors.push(error.message));
    await context.route('https://docs.google.com/forms/**',route=>route.fulfill({contentType:'text/html',body:'<p>Mock Google Form; no submission</p>'}));
-   await page.goto(config.baseUrl+'/IVAN-Base-Drive/');await page.locator('#featured-grid .post-card').waitFor();
-   assert.equal(await page.locator('#featured-grid .post-card').count(),1);assert.equal(await page.locator('#post-grid .post-card').count(),1);
+   await page.goto(config.baseUrl+'/IVAN-Base-Drive/');await page.locator('#post-grid .post-card').first().waitFor();
+   assert.equal(await page.locator('#post-grid .post-card').count(),2);assert.deepEqual(await page.locator('#post-grid h3').allTextContents(),['First game','Second film']);
    await page.locator('#feedback-open').click();await page.locator('#feedback-frame iframe').waitFor();assert.ok((await page.locator('#feedback-link').getAttribute('href')).startsWith(DEFAULT_FEEDBACK_FORM_URL));await page.locator('#feedback-close').click();
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true);
    await page.goto(config.baseUrl+'/auth/google');await page.locator('#post-table .dashboard-row').first().waitFor();
    const row=page.locator('#post-table .dashboard-row').filter({hasText:'Second film'});await row.locator('[data-pin]').click();await row.getByText('★ Bỏ ghim',{exact:true}).waitFor();
    await row.locator('[data-pin-order]').fill('1');await row.locator('[data-pin-order]').press('Tab');
    await page.waitForFunction(async(id)=>(await(await fetch('/api/admin/posts')).json()).find(post=>post.id===id).pin_order===1,second.id);
-   await exportStatic({databasePath:filename,outputDir:site});await page.goto(config.baseUrl+'/IVAN-Base-Drive/');await page.locator('#featured-grid .post-card').first().waitFor();
-   assert.deepEqual(await page.locator('#featured-grid h3').allTextContents(),['Second film','First game']);assert.equal(await page.locator('#post-grid .post-card').count(),0);
-   await page.locator('#search-input').fill('First');assert.equal(await page.locator('#featured-grid .post-card').count(),1);await page.locator('#search-input').fill('');await page.locator('[data-category="film"]').click();assert.equal(await page.locator('#featured-grid .post-card').count(),1);
-   await page.locator('#featured-grid .post-card').click();await page.locator('#detail-view h1').waitFor();assert.match(await page.locator('#detail-view h1').textContent(),/Second film/);
+   await exportStatic({databasePath:filename,outputDir:site});await page.goto(config.baseUrl+'/IVAN-Base-Drive/');await page.locator('#post-grid .post-card').first().waitFor();
+   assert.deepEqual(await page.locator('#post-grid h3').allTextContents(),['Second film','First game']);assert.equal(await page.locator('#post-grid .post-card').count(),2);
+   await page.locator('#search-input').fill('First');assert.equal(await page.locator('#post-grid .post-card').count(),1);assert.equal(await page.locator('#post-grid h3').textContent(),'First game');await page.locator('#search-input').fill('');await page.locator('[data-category="film"]').click();assert.equal(await page.locator('#post-grid .post-card').count(),1);
+   await page.locator('#post-grid .post-card').click();await page.locator('#detail-view h1').waitFor();assert.match(await page.locator('#detail-view h1').textContent(),/Second film/);
    await page.goto(config.baseUrl+'/admin/editor.html?edit='+second.id);await page.waitForFunction(()=>!document.querySelector('#post-form').hasAttribute('inert'));
    assert.equal(await page.locator('[name=is_pinned]').isChecked(),true);await page.locator('[name=is_pinned]').uncheck();await page.locator('button[value=published]').click();await page.waitForFunction(()=>document.querySelector('#message').textContent.includes('Đã lưu bài xuất bản'));assert.equal(db.get(second.id).is_pinned,0);
    await page.goto(config.baseUrl+'/admin/feedback.html');await page.waitForFunction(()=>!document.querySelector('#feedback-sync').disabled);await page.locator('#feedback-sync').click();await page.locator('.feedback-item').waitFor();

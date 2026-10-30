@@ -2,7 +2,14 @@ export const CATEGORIES = [{id:'film',name:'Phim'},{id:'game',name:'Game'},{id:'
 export function normalizeSearch(value) { return value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D').toLowerCase(); }
 export function filterPosts(posts,query='',category='all') {
  const term=normalizeSearch(query.trim());
- return posts.filter(p=>(category==='all'||p.category===category)&&normalizeSearch(`${p.title} ${p.description} ${CATEGORIES.find(c=>c.id===p.category)?.name||''}`).includes(term));
+ return posts.filter(p=>p.status==='published'&&!p.deleted_at&&(category==='all'||p.category===category)&&normalizeSearch(`${p.title} ${p.description} ${CATEGORIES.find(c=>c.id===p.category)?.name||''}`).includes(term));
+}
+export function sortPinnedPosts(posts) {
+ return posts.map((post,index)=>({post,index})).sort((a,b)=>{
+  const aPinned=a.post.is_pinned===true||a.post.is_pinned===1;
+  const bPinned=b.post.is_pinned===true||b.post.is_pinned===1;
+  return Number(bPinned)-Number(aPinned)||(aPinned?(a.post.pin_order||0)-(b.post.pin_order||0):0)||a.index-b.index;
+ }).map(({post})=>post);
 }
 export function splitFeatured(posts,{spotlight:showSpotlight=true}={}){
  const spotlight=showSpotlight?posts.find(post=>post.status==='published'&&!post.deleted_at&&(post.is_spotlight===true||post.is_spotlight===1))||null:null;

@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Quản lý Highlight — IVAN Base Drive</title>
+<link rel="stylesheet" href="/css/style.css?v=15">
+<link rel="stylesheet" href="/admin/admin.css?v=15">
+</head>
+<body>
+<header class="header"><div class="shell admin-header"><a class="brand" href="/admin/">IVAN BASE DRIVE <small>CMS</small></a><div><span id="highlight-email"></span> <a href="/admin/" class="nav-link">Bài viết</a> <button id="highlight-logout" class="secondary-button">Đăng xuất</button></div></div></header>
+<main class="shell admin-main">
+<nav class="cms-nav" aria-label="Quản trị"><a href="/admin/">Bài viết</a><a href="/admin/highlights.html" aria-current="page">Quản lý Highlight</a><a href="/admin/drive-library.html">Kho Google Drive</a><a href="/admin/feedback.html">Hộp góp ý</a></nav>
+<h1>Quản lý Highlight</h1>
+<p>Chọn các bài Published để tạo carousel đầu trang. Highlight độc lập với ghim bài; bài chuyển sang Draft hoặc bị xóa tự rời khỏi bản công khai.</p>
+<div class="highlight-settings">
+<label><span>Bật carousel</span><input id="highlight-enabled" type="checkbox"></label>
+<label for="highlight-interval">Tự chuyển sau (giây)<input id="highlight-interval" type="number" min="3" max="20" value="6"></label>
+<label for="highlight-add-post">Thêm bài Published<select id="highlight-add-post"><option value="">Chọn bài viết…</option></select></label>
+<button id="highlight-add" type="button" class="secondary-button">Thêm slide</button>
+<button id="highlight-save" type="button" class="primary-button">Lưu cấu hình</button>
+</div>
+<p id="highlight-status" role="status" aria-live="polite"></p>
+<section aria-labelledby="slide-list-title"><h2 id="slide-list-title">Thứ tự slide</h2><div id="highlight-slides"></div></section>
+<section class="highlight-preview" aria-labelledby="highlight-preview-title"><h2 id="highlight-preview-title">Xem trước</h2><p id="highlight-preview-status" role="status"></p><div id="highlight-preview" class="public-site" hidden></div></section>
+</main>
+<script type="module" src="/admin/highlights.js?v=1"></script>
+</body>
+</html>

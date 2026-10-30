@@ -1,6 +1,7 @@
-export function createPostActions({api,onComplete}){
+export function createPostActions({api,onComplete,notifications}){
  const dialog=document.createElement('dialog');dialog.className='action-dialog';
- dialog.innerHTML='<h2></h2><p class="action-description"></p><strong class="action-post-title"></strong><label class="purge-input" hidden>Nhập đúng tên bài để xóa vĩnh viễn<input autocomplete="off"></label><p role="alert"></p><div class="drive-actions"><button type="button" class="secondary-button" data-cancel>Hủy</button><button type="button" class="primary-button" data-execute>Xác nhận</button></div>';
+ dialog.setAttribute('aria-labelledby','action-dialog-title');dialog.setAttribute('aria-describedby','action-dialog-description');
+ dialog.innerHTML='<h2 id="action-dialog-title"></h2><p class="action-description" id="action-dialog-description"></p><strong class="action-post-title"></strong><label class="purge-input" hidden>Nhập đúng tên bài để xóa vĩnh viễn<input autocomplete="off"></label><p role="alert"></p><div class="drive-actions"><button type="button" class="secondary-button" data-cancel autofocus>Hủy</button><button type="button" class="primary-button" data-execute>Xác nhận</button></div>';
  document.body.append(dialog);let current,busy=false;
  const execute=dialog.querySelector('[data-execute]'),input=dialog.querySelector('input'),error=dialog.querySelector('[role=alert]');
  dialog.querySelector('[data-cancel]').addEventListener('click',()=>{if(!busy)dialog.close();});
@@ -12,8 +13,8 @@ export function createPostActions({api,onComplete}){
   busy=true;execute.disabled=true;error.textContent='';
   try{
    await api(kind==='restore'?`/api/admin/trash/${post.id}/restore`:kind==='purge'?`/api/admin/trash/${post.id}`:`/api/admin/posts/${post.id}`,{method:kind==='restore'?'POST':'DELETE',body:JSON.stringify({confirmTitle:post.title,...kind==='purge'?{action:'purge'}:{}})});
-   dialog.close();await onComplete(post,kind);
-  }catch(failure){error.textContent=failure.message;}finally{busy=false;execute.disabled=kind==='purge'&&input.value!==post.title;}
+   dialog.close();notifications?.success(kind==='purge'?`Đã xóa vĩnh viễn “${post.title}”.`:kind==='restore'?`Đã khôi phục “${post.title}”.`:`Đã chuyển “${post.title}” vào Thùng rác.`);await onComplete(post,kind);
+  }catch(failure){error.textContent=failure.message;notifications?.error(failure.message);}finally{busy=false;execute.disabled=kind==='purge'&&input.value!==post.title;}
  });
  return{open(post,kind='delete'){
   current={post,kind};input.value='';error.textContent='';

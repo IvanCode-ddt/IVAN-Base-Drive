@@ -5,6 +5,17 @@ export function validatePin(body){
   if(!body||![true,false,0,1].includes(body.is_pinned)||!Number.isInteger(body.pin_order)||body.pin_order<0||body.pin_order>9999)throw new InputError('Thông tin ghim không hợp lệ; thứ tự từ 0 đến 9999.');
   return{is_pinned:Number(body.is_pinned),pin_order:body.pin_order};
 }
+export function validateHighlightConfig(body,db){
+  if(!body||typeof body.enabled!=='boolean'||!Number.isInteger(body.interval_seconds)||body.interval_seconds<3||body.interval_seconds>20||!Array.isArray(body.slides)||body.slides.length>20)throw new InputError('Cấu hình Highlight không hợp lệ; thời gian từ 3 đến 20 giây, tối đa 20 slide.');
+  const seen=new Set(),slides=body.slides.map(slide=>{
+    if(!slide||typeof slide.post_id!=='string'||slide.post_id.length>64||typeof slide.enabled!=='boolean'||seen.has(slide.post_id))throw new InputError('Slide Highlight không hợp lệ hoặc bị trùng.');
+    seen.add(slide.post_id);
+    const post=db.get(slide.post_id);
+    if(!post||post.status!=='published')throw new InputError('Chỉ thêm được bài viết Published còn hoạt động vào Highlight.');
+    return{post_id:slide.post_id,enabled:slide.enabled};
+  });
+  return{enabled:body.enabled,interval_seconds:body.interval_seconds,slides};
+}
 function text(body, key, max, required = false) {
   const value = body[key] ?? '';
   if (typeof value !== 'string' || value.length > max || (required && !value.trim())) throw new InputError(`${key}: không hợp lệ hoặc vượt ${max} ký tự.`);
@@ -37,7 +48,6 @@ export function validatePost(body) {
     return isUploadPath(value)?value:httpsUrl(value, 'images');
   });
   const pin=Object.hasOwn(body,'is_pinned')||Object.hasOwn(body,'pin_order')?validatePin(body):{};
-  const spotlight={};if(Object.hasOwn(body,'is_spotlight')){if(![true,false,0,1].includes(body.is_spotlight))throw new InputError('Spotlight không hợp lệ.');spotlight.is_spotlight=Number(body.is_spotlight);}
   const metadata={};if(Object.hasOwn(body,'metadata')){
     const value=body.metadata,fields=new Map(Object.values(CONTENT_FIELDS).flat().map(field=>[field[0],field]));
     if(!value||typeof value!=='object'||Array.isArray(value)||Object.keys(value).length>fields.size)throw new InputError('Metadata phải là object gồm các trường hỗ trợ.');
@@ -63,5 +73,5 @@ export function validatePost(body) {
       }else throw new InputError('Loại nguồn phát không hợp lệ.');
     }
   }
-  return { title, slug, category: body.category, description, introduction, instructions, cover_url, images, attachment_url, drive_file_id, media_url, status: body.status,...pin,...spotlight,...(Object.hasOwn(body,'metadata')?{metadata}:{}),...(Object.hasOwn(body,'media_sources')?{media_sources}:{}) };
+  return { title, slug, category: body.category, description, introduction, instructions, cover_url, images, attachment_url, drive_file_id, media_url, status: body.status,...pin,...(Object.hasOwn(body,'metadata')?{metadata}:{}),...(Object.hasOwn(body,'media_sources')?{media_sources}:{}) };
 }

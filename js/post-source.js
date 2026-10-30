@@ -17,9 +17,15 @@ export function createPostSource({location=globalThis.location,fetcher=globalThi
     }).catch(error=>{snapshot=undefined;throw error;});
     return snapshot;
   }
+  async function highlights() {
+    const data=await json(local?'/api/highlights':new URL('./content/highlights.json',location.href).href);
+    if(data.schemaVersion!==1||typeof data.enabled!=='boolean'||!Number.isInteger(data.interval_seconds)||!Array.isArray(data.slides))throw new Error('Cấu hình Highlight không hợp lệ. Hãy xuất lại website.');
+    return data;
+  }
   return {
     local,
     list:()=>local?json('/api/posts'):staticPosts(),
+    highlights,
     async get(slug) {
       if(local)return json(`/api/posts/${encodeURIComponent(slug)}`);
       const post=(await staticPosts()).find(p=>p.slug===slug);

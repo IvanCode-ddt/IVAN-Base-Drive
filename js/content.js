@@ -1,5 +1,5 @@
 import { CATEGORIES } from './data.js?v=14';
-import { imageURL,CONTENT_FIELDS,publicMetadata,formatBytes,mediaChoices,spotlightImageSet } from './media.js?v=14';
+import { imageURL,CONTENT_FIELDS,publicMetadata,formatBytes,mediaChoices,spotlightImageSet } from './media.js?v=15';
 import { renderMarkdown } from './markdown.js?v=14';
 export const categoryName=id=>CATEGORIES.find(c=>c.id===id)?.name||'Khác';
 export function escapeHTML(value=''){return String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
@@ -9,9 +9,10 @@ export function cover(p,extra=''){
  const url=imageURL(p.cover_url);
  return `<div class="cover ${extra}" style="--tone:#23322b;--glow:#536943;--ink:#c8f477">${url?`<img class="real-cover" src="${escapeHTML(url)}" alt="${escapeHTML(p.title)}" loading="lazy" referrerpolicy="no-referrer">`:`<span class="cover-symbol" aria-hidden="true">✦</span><span class="cover-word">${escapeHTML(categoryName(p.category))}</span>`}</div>`;
 }
-export function spotlightHTML(post){
- const url=imageURL(post.cover_url),variants=spotlightImageSet(post.cover_url),source=variants[1]?.url||url;
- return`${url?`<img class="spotlight-cover" src="${escapeHTML(source)}" ${variants.length?`srcset="${variants.map(image=>`${image.url} ${image.width}w`).join(', ')}" sizes="(max-width: 1200px) 100vw, 1200px"`:''} alt="" width="1440" height="810" fetchpriority="high" decoding="async" referrerpolicy="no-referrer">`:''}<div class="spotlight-copy"><span class="eyebrow">SPOTLIGHT · ${escapeHTML(categoryName(post.category))}</span><h1 id="spotlight-title">${escapeHTML(post.title)}</h1><p>${escapeHTML(post.description)}</p><a class="primary-button" href="#post/${encodeURIComponent(post.slug)}">Khám phá <span aria-hidden="true">↗</span></a></div>`;
+export function spotlightHTML(post,{active=true,index=0}={}){
+ const url=imageURL(post.cover_url),variants=globalThis.location?.pathname?.startsWith('/admin')?[]:spotlightImageSet(post.cover_url),source=variants[1]?.url||url;
+ const image=source?`<img class="spotlight-cover" ${active?`src="${escapeHTML(source)}"`:`data-src="${escapeHTML(source)}"`} ${variants.length?`${active?`srcset="${variants.map(item=>`${item.url} ${item.width}w`).join(', ')}"`:`data-srcset="${variants.map(item=>`${item.url} ${item.width}w`).join(', ')}"`} sizes="(max-width: 1200px) 100vw, 1200px"`:''} alt="" decoding="async" referrerpolicy="no-referrer">`:'';
+ return`<article class="spotlight-slide${active?' is-active':''}" data-highlight-slide data-index="${index}" aria-hidden="${!active}"${active?'':' inert'}>${image}<div class="spotlight-copy"><span class="eyebrow">HIGHLIGHT · ${escapeHTML(categoryName(post.category))}</span><h1 id="spotlight-title-${index}">${escapeHTML(post.title)}</h1><p>${escapeHTML(post.description)}</p><a class="primary-button" href="#post/${encodeURIComponent(post.slug)}">Khám phá <span aria-hidden="true">↗</span></a></div></article>`;
 }
 function fileDate(value){const date=new Date(value);return value&&Number.isFinite(date.getTime())?date.toLocaleDateString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'}):'';}
 function mimeFormat(mime){return({'application/zip':'ZIP','video/mp4':'MP4','video/webm':'WebM','audio/mpeg':'MP3','audio/wav':'WAV','audio/flac':'FLAC','audio/ogg':'OGG'})[mime]||mime||'';}
