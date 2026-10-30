@@ -1,6 +1,7 @@
-import { CATEGORIES,filterPosts,splitFeatured } from './data.js?v=12';
-import { cover,detailHTML,escapeHTML,categoryName } from './content.js?v=9';
+import { CATEGORIES,filterPosts,splitFeatured } from './data.js?v=14';
+import { cover,detailHTML,escapeHTML,categoryName,spotlightHTML } from './content.js?v=14';
 import { createPostSource } from './post-source.js?v=9';
+import {initPlayers} from './media.js?v=14';
 const source=createPostSource();
 const $=s=>document.querySelector(s);
 // Public entry point only. Nothing is hidden while JS/observers are unavailable.
@@ -21,6 +22,7 @@ function enter(node,distance=8){
 reducedMotion.addEventListener?.('change',syncMotion);ambientViewport.addEventListener?.('change',syncMotion);
 document.addEventListener('visibilitychange',syncMotion);syncMotion();
 let posts=[],category='all',libraryScroll=0,routeVersion=0;
+let disposePlayers=()=>{};
 function renderFilters(){
  const filters=$('#category-filters');
  if(!filters.children.length)filters.innerHTML=[{id:'all',name:'Tất cả'},...CATEGORIES].map(c=>`<button class="filter" data-category="${c.id}">${c.name}</button>`).join('');
@@ -29,7 +31,10 @@ function renderFilters(){
 function renderPosts(){
  const list=filterPosts(posts,$('#search-input').value,category);
  $('#result-count').textContent=`${list.length} bài viết`;
- const {featured,regular}=splitFeatured(list);
+ const {spotlight,featured,regular}=splitFeatured(list,{spotlight:category==='all'&&!$('#search-input').value.trim()});
+ const spotlightSection=$('#spotlight');
+ if(spotlightSection.dataset.postId!==(spotlight?.id||'')){spotlightSection.innerHTML=spotlight?spotlightHTML(spotlight):'';spotlightSection.dataset.postId=spotlight?.id||'';if(spotlight)enter(spotlightSection.querySelector('.spotlight-copy'),6);}
+ spotlightSection.hidden=!spotlight;$('.hero').hidden=!!spotlight;
  $('#featured-section').hidden=!featured.length;
  $('#featured-grid').innerHTML=featured.map(p=>cardHTML(p,true)).join('');
  $('#post-grid').innerHTML=regular.map(p=>cardHTML(p)).join('');
@@ -37,6 +42,7 @@ function renderPosts(){
 }
 function cardHTML(p,pinned=false){return `<article><a class="post-card" href="#post/${encodeURIComponent(p.slug)}" aria-label="Xem ${escapeHTML(p.title)}">${cover(p)}<div class="card-content"><div class="card-meta"><span class="category-label">${categoryName(p.category)}</span>${pinned?'<span class="pinned-badge">★ Nổi bật</span>':''}</div><h3>${escapeHTML(p.title)}</h3><p>${escapeHTML(p.description)}</p><div class="card-bottom"><span>Xem chi tiết</span><span aria-hidden="true">↗</span></div></div></a></article>`;}
 async function route(){
+ disposePlayers();disposePlayers=()=>{};
  const version=++routeVersion,hash=location.hash,library=$('#library-view'),detail=$('#detail-view');
  if(hash.startsWith('#post/')){
   if(!library.hidden)libraryScroll=window.scrollY;
@@ -45,6 +51,7 @@ async function route(){
   try{
    const p=await source.get(decodeURIComponent(hash.slice(6)));if(version!==routeVersion)return;
    detail.innerHTML=`<a class="back-link" href="#collection">← Trở về thư viện</a>${detailHTML(p)}`;
+   disposePlayers=initPlayers(detail);
    enter(detail.querySelector('.detail-header'));
    document.title=`${p.title} — IVAN Base Drive`;window.scrollTo(0,0);detail.querySelector('h1').focus({preventScroll:true});
   }catch(error){if(version===routeVersion)detail.innerHTML=`<a class="back-link" href="#collection">← Trở về thư viện</a><p role="alert">${escapeHTML(error.message)}</p>`;}
@@ -77,4 +84,4 @@ $('#feedback-open').addEventListener('click',async()=>{
 });
 $('#feedback-close').addEventListener('click',()=>{$('#feedback-dialog').close();$('#feedback-frame').replaceChildren();});
 $('#feedback-dialog').addEventListener('close',()=>$('#feedback-frame').replaceChildren());
-window.addEventListener('hashchange',route);renderFilters();load();route();enter($('.hero-copy'),6);
+window.addEventListener('hashchange',route);renderFilters();load();route();enter($('#spotlight').hidden?$('.hero-copy'):$('#spotlight .spotlight-copy'),6);

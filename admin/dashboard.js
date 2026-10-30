@@ -1,4 +1,4 @@
-import {escapeHTML,detailHTML,categoryName} from '/js/content.js?v=9';
+import {escapeHTML,detailHTML,categoryName} from '/js/content.js?v=14';
 import {normalizeSearch,CATEGORIES} from '/js/data.js?v=7';
 import {createPostActions} from './actions.js?v=9';
 import {initPublishUI} from './publish.js?v=10';
@@ -12,7 +12,7 @@ function render(){
  const query=normalizeSearch($('#post-search').value),category=$('#post-category').value,status=$('#post-filter-status').value;
  const shown=posts.filter(p=>(!category||p.category===category)&&(!status||p.status===status)&&normalizeSearch(p.title+' '+p.slug).includes(query));
  $('#dashboard-count').textContent=`${posts.length} bài · ${posts.filter(p=>p.status==='published').length} Published · ${trash.length} trong Thùng rác`;
- $('#post-table').innerHTML=shown.length?shown.map(p=>`<article class="dashboard-row"><div><h3>${escapeHTML(p.title)}</h3><p>${categoryName(p.category)} · <span class="status-badge" data-status="${p.status}">${p.status==='published'?'Published':'Draft'}</span></p><small>${p.drive_files.length} file đã gắn · ${p.drive_files.filter(f=>f.sharing_confirmed===1&&f.sharing_access!=='restricted').length} file được công khai</small></div><div class="drive-actions"><a class="secondary-button" href="/admin/editor.html?edit=${p.id}">Sửa</a><button class="secondary-button" data-pin="${p.id}">${p.is_pinned?"★ Bỏ ghim":"☆ Ghim"}</button>${p.is_pinned?`<label>Thứ tự ghim<input type="number" min="0" max="9999" value="${p.pin_order}" data-pin-order="${p.id}" aria-label="Thứ tự ghim ${escapeHTML(p.title)}"></label>`:""}<button class="secondary-button" data-preview="${p.id}">Xem trước</button><button class="secondary-button" data-delete="${p.id}">Xóa</button></div></article>`).join(''):'<p>Không có bài phù hợp.</p>';
+ $('#post-table').innerHTML=shown.length?shown.map(p=>`<article class="dashboard-row"><div><h3>${escapeHTML(p.title)}</h3><p>${categoryName(p.category)} · <span class="status-badge" data-status="${p.status}">${p.status==='published'?'Published':'Draft'}</span></p><small>${p.drive_files.length} file đã gắn · ${p.drive_files.filter(f=>f.sharing_confirmed===1&&f.sharing_access!=='restricted').length} file được công khai</small></div><div class="drive-actions"><a class="secondary-button" href="/admin/editor.html?edit=${p.id}">Sửa</a><button class="secondary-button" data-pin="${p.id}">${p.is_pinned?"★ Bỏ ghim":"☆ Ghim"}</button>${p.is_pinned?`<label>Thứ tự ghim<input type="number" min="0" max="9999" value="${p.pin_order}" data-pin-order="${p.id}" aria-label="Thứ tự ghim ${escapeHTML(p.title)}"></label>`:""}<button class="secondary-button" data-spotlight="${p.id}">${p.is_spotlight?"Bỏ Spotlight":"Spotlight"}</button><button class="secondary-button" data-preview="${p.id}">Xem trước</button><button class="secondary-button" data-delete="${p.id}">Xóa</button></div></article>`).join(''):'<p>Không có bài phù hợp.</p>';
  $('#trash-table').innerHTML=trash.length?trash.map(p=>`<article class="dashboard-row"><div><h3>${escapeHTML(p.title)}</h3><p>Đã xóa: ${new Date(p.deleted_at).toLocaleString('vi-VN')}</p></div><div class="drive-actions"><button class="secondary-button" data-restore="${p.id}">Khôi phục</button><button class="secondary-button" data-purge="${p.id}">Xóa vĩnh viễn</button></div></article>`).join(''):'<p>Thùng rác trống.</p>';
 }
 async function load(){[posts,trash]=await Promise.all([api('/api/admin/posts'),api('/api/admin/trash')]);render();}
@@ -21,10 +21,12 @@ for(const id of ['post-search','post-category','post-filter-status'])$('#'+id).a
 document.addEventListener('click',event=>{
  const button=event.target.closest('button');if(!button)return;
  if(button.dataset.pin){const post=posts.find(p=>p.id===button.dataset.pin);if(post)savePin(post,!post.is_pinned,post.pin_order);}
+ if(button.dataset.spotlight){const post=posts.find(p=>p.id===button.dataset.spotlight);if(post)saveSpotlight(post,!post.is_spotlight);}
  for(const kind of ['delete','restore','purge'])if(button.dataset[kind]){const post=[...posts,...trash].find(p=>p.id===button.dataset[kind]);if(post)actions.open(post,kind);}
  if(button.dataset.preview){const post=posts.find(p=>p.id===button.dataset.preview);$('#dashboard-preview-content').innerHTML=detailHTML(post,{preview:true});$('#dashboard-preview').showModal();}
 });
 async function savePin(post,pinned,order){try{await api(`/api/admin/posts/${post.id}/pin`,{method:'PATCH',body:JSON.stringify({is_pinned:pinned,pin_order:order})});await load();$('#dashboard-message').textContent='Đã cập nhật ghim. Export để cập nhật website công khai.';}catch(error){$('#dashboard-message').textContent=error.message;}}
+async function saveSpotlight(post,selected){try{await api(`/api/admin/posts/${post.id}/spotlight`,{method:'PATCH',body:JSON.stringify({is_spotlight:selected})});await load();$('#dashboard-message').textContent='Đã cập nhật Spotlight. Export để cập nhật website công khai.';}catch(error){$('#dashboard-message').textContent=error.message;}}
 document.addEventListener('change',event=>{const id=event.target.dataset.pinOrder;if(id){const post=posts.find(p=>p.id===id);if(post)savePin(post,true,Number(event.target.value));}});
 $('#preview-close').addEventListener('click',()=>$('#dashboard-preview').close());
 function route(){const view=location.hash==='#trash'?'trash':location.hash==='#settings'?'settings':'posts';for(const key of ['posts','trash','settings'])$('#'+key+'-dashboard').hidden=key!==view;}

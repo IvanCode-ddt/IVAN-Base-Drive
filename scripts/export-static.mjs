@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { randomUUID } from 'node:crypto';
 import { publicPost } from '../server/public-post.js';
-import { localImages, isUploadPath } from '../js/media.js';
+import { localImages, isUploadPath,spotlightImageSet } from '../js/media.js';
 import {publicFormURL,DEFAULT_FEEDBACK_FORM_URL} from '../server/public-settings.js';
 
 const projectRoot = fileURLToPath(new URL('../', import.meta.url));
@@ -33,7 +33,12 @@ export async function exportStatic({ databasePath=path.resolve(process.env.DATAB
   await mkdir(contentDir,{recursive:true});
   await mkdir(path.join(outputDir,'css'),{recursive:true});
   await mkdir(path.join(outputDir,'js'),{recursive:true});
-  const html=(await readFile(path.join(sourceDir,'index.html'),'utf8')).replace(/<a\b[^>]*\bdata-local-admin\b[^>]*>.*?<\/a>/g,'').replace('data-feedback-form-url=""',`data-feedback-form-url="${publicFormURL(process.env.FEEDBACK_FORM_URL??DEFAULT_FEEDBACK_FORM_URL)}"`);
+  let html=(await readFile(path.join(sourceDir,'index.html'),'utf8')).replace(/<a\b[^>]*\bdata-local-admin\b[^>]*>.*?<\/a>/g,'').replace('data-feedback-form-url=""',`data-feedback-form-url="${publicFormURL(process.env.FEEDBACK_FORM_URL??DEFAULT_FEEDBACK_FORM_URL)}"`);
+  const spotlight=posts.find(post=>post.is_spotlight);
+  if(spotlight){
+    const {spotlightHTML,escapeHTML}=await import('../js/content.js');
+    html=html.replace(/<section id="spotlight"[^>]*><\/section>/,()=>`<section id="spotlight" class="spotlight" aria-labelledby="spotlight-title" data-post-id="${escapeHTML(spotlight.id)}">${spotlightHTML(spotlight)}</section>`).replace('<div class="hero">','<div class="hero" hidden>');
+  }
   await writeFile(path.join(outputDir,'index.html'),html,'utf8');
   await copyFile(path.join(sourceDir,'css/style.css'),path.join(outputDir,'css/style.css'));
   for(const file of ['main.js','data.js','content.js','post-source.js','media.js','markdown.js']) await copyFile(path.join(sourceDir,'js',file),path.join(outputDir,'js',file));
@@ -45,6 +50,16 @@ export async function exportStatic({ databasePath=path.resolve(process.env.DATAB
     await copyFile(from,path.join(outputDir,relative));
   }
   await copyImages(path.join(sourceDir,'images'),path.join(outputDir,'images'));
+  const generated=new Set();
+  for(const post of posts.filter(post=>post.is_spotlight&&isUploadPath(post.cover_url))){
+    const {default:sharp}=await import('sharp');const original=path.join(sourceDir,post.cover_url);
+    if(!(await lstat(original)).isFile())throw new Error('Spotlight image must be a regular file');
+    const imageBytes=await readFile(original);
+    for(const image of spotlightImageSet(post.cover_url)){
+      generated.add(path.basename(image.url));await sharp(imageBytes,{limitInputPixels:16000000}).resize(image.width,Math.round(image.width*9/16),{fit:'cover'}).webp({quality:78}).toFile(path.join(outputDir,image.url));
+    }
+  }
+  for(const name of await readdir(path.join(outputDir,'images')))if(/^spotlight-[a-f0-9-]{36}-(640|960|1440)\.webp$/.test(name)&&!generated.has(name))await rm(path.join(outputDir,'images',name));
   await writeFile(path.join(outputDir,'.nojekyll'),'','utf8');
   const temporary=path.join(contentDir,`posts.${randomUUID()}.tmp`);
   try {

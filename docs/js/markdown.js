@@ -1,4 +1,4 @@
-import { imageURL } from './media.js';
+import { imageURL } from './media.js?v=14';
 const esc=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function inline(text,depth=0) {
   if(depth>4)return esc(text);

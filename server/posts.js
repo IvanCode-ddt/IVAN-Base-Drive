@@ -1,5 +1,5 @@
 export const categories = ['film', 'game', 'music', 'app', 'other'];
-import { isUploadPath } from '../js/media.js';
+import { isUploadPath,CONTENT_FIELDS,MEDIA_TYPES,directMediaURL,drivePreview } from '../js/media.js';
 export class InputError extends Error {}
 export function validatePin(body){
   if(!body||![true,false,0,1].includes(body.is_pinned)||!Number.isInteger(body.pin_order)||body.pin_order<0||body.pin_order>9999)throw new InputError('Thông tin ghim không hợp lệ; thứ tự từ 0 đến 9999.');
@@ -37,5 +37,31 @@ export function validatePost(body) {
     return isUploadPath(value)?value:httpsUrl(value, 'images');
   });
   const pin=Object.hasOwn(body,'is_pinned')||Object.hasOwn(body,'pin_order')?validatePin(body):{};
-  return { title, slug, category: body.category, description, introduction, instructions, cover_url, images, attachment_url, drive_file_id, media_url, status: body.status,...pin };
+  const spotlight={};if(Object.hasOwn(body,'is_spotlight')){if(![true,false,0,1].includes(body.is_spotlight))throw new InputError('Spotlight không hợp lệ.');spotlight.is_spotlight=Number(body.is_spotlight);}
+  const metadata={};if(Object.hasOwn(body,'metadata')){
+    const value=body.metadata,fields=new Map(Object.values(CONTENT_FIELDS).flat().map(field=>[field[0],field]));
+    if(!value||typeof value!=='object'||Array.isArray(value)||Object.keys(value).length>fields.size)throw new InputError('Metadata phải là object gồm các trường hỗ trợ.');
+    for(const[key,content]of Object.entries(value)){
+      const field=fields.get(key);if(!field||typeof content!=='string'||content.length>field[2])throw new InputError('Trường metadata không hợp lệ hoặc quá dài.');
+      if(content.trim()){
+        if(key==='release_year'&&(!/^\d{4}$/.test(content)||Number(content)<1888||Number(content)>2200))throw new InputError('Năm phát hành không hợp lệ.');
+        if(key==='content_updated_at'&&(!/^\d{4}-\d{2}-\d{2}$/.test(content)||!Number.isFinite(Date.parse(content))||new Date(content).toISOString().slice(0,10)!==content))throw new InputError('Ngày cập nhật nội dung không hợp lệ.');
+        metadata[key]=content.trim();
+      }
+    }
+  }
+  const media_sources=[];if(Object.hasOwn(body,'media_sources')){
+    if(!Array.isArray(body.media_sources)||body.media_sources.length>10)throw new InputError('Tối đa 10 nguồn phát.');
+    for(const source of body.media_sources){
+      if(!source||typeof source!=='object'||typeof source.label!=='string'||!source.label.trim()||source.label.length>120||typeof source.url!=='string'||source.url.length>2048||typeof source.sharing_confirmed!=='boolean')throw new InputError('Nguồn phát cần tên, URL hợp lệ và xác nhận quyền chia sẻ.');
+      if(source.kind==='direct'){
+        if(!directMediaURL(source.url)||!MEDIA_TYPES.includes(source.mime_type)||(['film','music'].includes(body.category)&&!source.mime_type.startsWith(body.category==='film'?'video/':'audio/')))throw new InputError('Nguồn HTML5 phải là HTTPS media hợp lệ, đúng loại. Không dùng URL Drive làm stream trực tiếp.');
+        media_sources.push({kind:'direct',label:source.label.trim(),url:directMediaURL(source.url),mime_type:source.mime_type,sharing_confirmed:source.sharing_confirmed});
+      }else if(source.kind==='drive_preview'){
+        const preview=drivePreview(source.url);if(!preview||(Array.isArray(body.drive_file_ids)&&!body.drive_file_ids.includes(preview.file_id)))throw new InputError('Drive preview phải là link file đã gắn vào bài viết.');
+        media_sources.push({kind:'drive_preview',label:source.label.trim(),...preview,sharing_confirmed:source.sharing_confirmed});
+      }else throw new InputError('Loại nguồn phát không hợp lệ.');
+    }
+  }
+  return { title, slug, category: body.category, description, introduction, instructions, cover_url, images, attachment_url, drive_file_id, media_url, status: body.status,...pin,...spotlight,...(Object.hasOwn(body,'metadata')?{metadata}:{}),...(Object.hasOwn(body,'media_sources')?{media_sources}:{}) };
 }

@@ -1,7 +1,7 @@
 import express from 'express';
 import sharp from 'sharp';
 import { randomUUID } from 'node:crypto';
-import { mkdir, writeFile, lstat } from 'node:fs/promises';
+import { mkdir, writeFile, lstat,readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { isUploadPath, localImages } from '../js/media.js';
 import { InputError } from './posts.js';
@@ -25,6 +25,13 @@ export async function saveImage(buffer,directory) {
   return {path:`uploads/${name}`,mime:'image/webp',size:output.length};
 }
 export function registerMedia(app,{admin,csrf,db,uploadDir}) {
+  app.get(/^\/images\/spotlight-([a-f0-9-]{36})-(640|960|1440)\.webp$/,async(req,res,next)=>{
+    const name=req.params[0]+'.webp',width=Number(req.params[1]),relative='uploads/'+name;
+    if(!isUploadPath(relative)||!db.list(true).some(post=>post.is_spotlight&&post.cover_url===relative))return res.sendStatus(404);
+    try{const original=path.join(uploadDir,name);if(!(await lstat(original)).isFile())return res.sendStatus(404);
+      const bytes=await sharp(await readFile(original),{limitInputPixels:16000000}).resize(width,Math.round(width*9/16),{fit:'cover'}).webp({quality:78}).toBuffer();res.set('Cache-Control','no-store').type('webp').send(bytes);
+    }catch(error){if(error.code==='ENOENT')return res.sendStatus(404);next(error);}
+  });
   app.post('/api/admin/images',csrf,express.raw({type:()=>true,limit:MAX_IMAGE_BYTES}),async(req,res)=>res.status(201).json(await saveImage(req.body,uploadDir)));
   async function serve(req,res,next,privateView) {
     const relative=`uploads/${req.params.name}`;

@@ -50,7 +50,7 @@ test('migration v3 to v4 creates verified backup before migration and retains po
  try{
   db=openDatabase(filename);const post=db.create(validatePost({title:'Keep Vencord',slug:'keep',category:'app',description:'Keep',images:[],status:'published'}));
   db.linkFile(post.id,{file_id:'keep_file',name:'Vencord.exe',mime_type:'application/octet-stream',size:null,modified_time:'',web_url:'https://drive.google.com/file/d/keep_file/view'});db.close();db=null;
-  const raw=new DatabaseSync(filename);raw.exec('DROP INDEX posts_deleted; ALTER TABLE posts DROP COLUMN deleted_at; PRAGMA user_version=3;');raw.close();
+  const raw=new DatabaseSync(filename);raw.exec('DROP INDEX posts_spotlight; DROP INDEX posts_deleted; ALTER TABLE posts DROP COLUMN deleted_at; PRAGMA user_version=3;');raw.close();
   db=openDatabase(filename);assert.equal(db.get(post.id).drive_files[0].file_id,'keep_file');assert.equal(db.get(post.id).deleted_at,null);
   const backups=await readdir(path.join(directory,'backups'));const backup=backups.find(f=>f.endsWith('.sqlite'));
   const report=JSON.parse(await readFile(path.join(directory,'backups',backup+'.verified.json'),'utf8'));assert.equal(report.integrity,'ok');assert.equal(report.postCount,1);

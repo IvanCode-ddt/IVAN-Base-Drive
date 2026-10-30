@@ -1,5 +1,9 @@
 # IVAN Base Drive — Giai đoạn 3B
 
+## Giai đoạn 8 — Spotlight, metadata, video/audio theo yêu cầu
+
+Admin chọn tối đa một Spotlight chính (tự ghim), nhập metadata tùy chọn theo danh mục và cấu hình nguồn phát có quyền chia sẻ. Website dùng HTML5 cho URL media trực tiếp, Drive preview chỉ tạo iframe sau cú bấm và luôn giữ fallback tải/mở Drive. Không suy link download thành stream, không mở rộng OAuth scope. Xem [STAGE8-GUIDE.md](STAGE8-GUIDE.md) để quản lý và biết các giới hạn.
+
 ## Ghim bài viết và Hộp góp ý
 
 Ghim tối đa 5 bài trong Admin, đặt thứ tự ưu tiên bằng số; chỉ Published xuất hiện ở Nội dung nổi bật. Website có nút Gửi góp ý mở Google Form chính thức. Hộp góp ý local có adapter Sheets riêng chỉ đọc, mặc định tắt cho đến khi bạn cấu hình quyền hợp lệ; không mở rộng OAuth scope Admin/Drive.

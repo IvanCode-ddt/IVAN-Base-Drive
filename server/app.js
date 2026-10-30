@@ -37,7 +37,7 @@ export function createApp({ config, db, oauthClient, driveRequest, feedbackTrans
     }
     next();
   });
-  app.use(helmet({ contentSecurityPolicy: { directives: { 'img-src': ["'self'", 'https:'], 'media-src': ["'self'", 'https:'], 'frame-src': ["'self'", 'https://docs.google.com'], 'style-src': ["'self'", "'unsafe-inline'"], 'script-src': ["'self'"], 'upgrade-insecure-requests': config.secure ? [] : null } }, strictTransportSecurity: config.secure ? undefined : false }));
+  app.use(helmet({ contentSecurityPolicy: { directives: { 'img-src': ["'self'", 'https:'], 'media-src': ["'self'", 'https:'], 'frame-src': ["'self'", 'https://docs.google.com','https://drive.google.com'], 'style-src': ["'self'", "'unsafe-inline'"], 'script-src': ["'self'"], 'upgrade-insecure-requests': config.secure ? [] : null } }, strictTransportSecurity: config.secure ? undefined : false }));
   app.use(express.json({ limit: '150kb' }));
   app.use(session({ name:'ivan.sid', secret:config.sessionSecret, store:sessionStore, resave:false, saveUninitialized:false, cookie:{ httpOnly:true, secure:config.secure, sameSite:'lax', maxAge:ADMIN_SESSION_MS } }));
   const admin = (req,res,next) => {
@@ -100,11 +100,15 @@ export function createApp({ config, db, oauthClient, driveRequest, feedbackTrans
   registerPublishRoutes(app,{config,csrf,publisher:publisher||createPublisher({root,databasePath:config.databasePath,adminEmail:config.adminEmail,secrets:[config.clientSecret,config.sessionSecret]})});
   registerMedia(app,{admin,csrf,db,uploadDir});
   registerDriveRoutes(app, {db,config,csrf,driveRequest,revokeToken:token => oauth.revokeToken(token)});
-  app.get('/api/admin/session', (req,res) => res.json({ email:req.session.admin.email, authMode:'google',supportsPinning:true,driveConnected:!!req.session.drive?.access_token&&req.session.drive.expiry_date>Date.now()+10000, csrfToken:req.session.csrf, saveContractVersion:2 }));
+  app.get('/api/admin/session', (req,res) => res.json({ email:req.session.admin.email, authMode:'google',supportsPinning:true,contentSchemaVersion:9,driveConnected:!!req.session.drive?.access_token&&req.session.drive.expiry_date>Date.now()+10000, csrfToken:req.session.csrf, saveContractVersion:2 }));
   app.get('/api/admin/posts', (req,res) => res.json(db.list()));
   app.patch('/api/admin/posts/:id/pin',csrf,(req,res)=>{
     const pin=validatePin(req.body),post=db.setPin(req.params.id,pin.is_pinned,pin.pin_order);
     return post?res.json(post):res.status(404).json({error:'Không tìm thấy bài viết.'});
+  });
+  app.patch('/api/admin/posts/:id/spotlight',csrf,(req,res)=>{
+    if(typeof req.body?.is_spotlight!=='boolean')throw new InputError('Spotlight cần giá trị true/false.');
+    const post=db.setSpotlight(req.params.id,req.body.is_spotlight);post?res.json(post):res.status(404).json({error:'Không tìm thấy bài viết.'});
   });
   app.get('/api/admin/trash',(req,res)=>res.json(db.trash()));
   app.get('/api/admin/settings',(req,res)=>res.json({email:config.adminEmail,driveRootId:config.driveRootId,exportCommand:'npm.cmd run export',postCount:db.list().length,trashCount:db.trash().length}));

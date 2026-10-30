@@ -11,3 +11,6 @@
 .feedback-item{border:1px solid #343b45;border-radius:16px;padding:20px;margin:16px 0;overflow-wrap:anywhere}
 .feedback-item select{max-width:100%;margin-top:12px}
 .dashboard-row input[type=number]{width:90px;min-width:0}
+#post-form label.content-option{display:flex;align-items:flex-start;gap:10px}
+#post-form .content-option input[type=checkbox]{width:18px;min-width:18px;height:18px;padding:0;margin:3px 0;accent-color:var(--accent)}
+#media-source-rows{display:grid;gap:14px}

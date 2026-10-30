@@ -9,8 +9,8 @@ export function openDatabase(filename) {
   if (filename !== ':memory:') mkdirSync(path.dirname(filename), { recursive: true });
   const db = new DatabaseSync(filename);
   const initialVersion=db.prepare('PRAGMA user_version').get().user_version;
-  if(initialVersion>6){db.close();throw new Error('Database mới hơn ứng dụng.');}
-  if(filename!==':memory:'&&initialVersion<6&&db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='posts'").get()){
+  if(initialVersion>9){db.close();throw new Error('Database mới hơn ứng dụng.');}
+  if(filename!==':memory:'&&initialVersion<9&&db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='posts'").get()){
     try{const saved=verifiedBackup(db,filename);console.log(`Verified pre-migration backup: ${saved.path} (${saved.postCount} posts; integrity ok)`);}catch(error){db.close();throw error;}
   }
   db.exec(`PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;
@@ -24,7 +24,7 @@ export function openDatabase(filename) {
       created_at TEXT NOT NULL, updated_at TEXT NOT NULL
     ); CREATE INDEX IF NOT EXISTS posts_status_updated ON posts(status, updated_at DESC);`);
   const version = db.prepare('PRAGMA user_version').get().user_version;
-  if (version > 6) { db.close(); throw new Error('Database mới hơn phiên bản ứng dụng. Không tự động hạ cấp.'); }
+  if (version > 9) { db.close(); throw new Error('Database mới hơn phiên bản ứng dụng. Không tự động hạ cấp.'); }
   if (version < 2) {
     db.exec('BEGIN IMMEDIATE');
     try {
@@ -83,13 +83,32 @@ export function openDatabase(filename) {
     }catch(error){db.exec('ROLLBACK');db.close();throw error;}
   }
   const linkedFiles = id => db.prepare('SELECT * FROM post_drive_files WHERE post_id=? ORDER BY linked_at,file_id').all(id);
-  const decode = row => row ? { ...row, images: JSON.parse(row.images), drive_files: linkedFiles(row.id) } : null;
-  const columns = ['slug','title','category','description','introduction','instructions','cover_url','images','attachment_url','drive_file_id','media_url','status','is_pinned','pin_order'];
-  const values = post => columns.map(key => key === 'images' ? JSON.stringify(post.images) : post[key]);
+  if(version<7){
+    db.exec('BEGIN IMMEDIATE');try{
+      if(!db.prepare('PRAGMA table_info(posts)').all().some(column=>column.name==='is_spotlight'))db.exec('ALTER TABLE posts ADD COLUMN is_spotlight INTEGER NOT NULL DEFAULT 0 CHECK(is_spotlight IN (0,1))');
+      db.exec('CREATE UNIQUE INDEX IF NOT EXISTS posts_spotlight ON posts(is_spotlight) WHERE is_spotlight=1 AND deleted_at IS NULL; PRAGMA user_version=7; COMMIT;');
+    }catch(error){db.exec('ROLLBACK');db.close();throw error;}
+  }
+  if(version<8){
+    db.exec('BEGIN IMMEDIATE');try{
+      if(!db.prepare('PRAGMA table_info(posts)').all().some(column=>column.name==='metadata'))db.exec("ALTER TABLE posts ADD COLUMN metadata TEXT NOT NULL DEFAULT '{}' CHECK(json_valid(metadata) AND json_type(metadata)='object')");
+      db.exec('PRAGMA user_version=8; COMMIT;');
+    }catch(error){db.exec('ROLLBACK');db.close();throw error;}
+  }
+  if(version<9){db.exec('BEGIN IMMEDIATE');try{
+    if(!db.prepare('PRAGMA table_info(posts)').all().some(column=>column.name==='media_sources'))db.exec("ALTER TABLE posts ADD COLUMN media_sources TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(media_sources) AND json_type(media_sources)='array')");
+    db.exec('PRAGMA user_version=9; COMMIT;');
+  }catch(error){db.exec('ROLLBACK');db.close();throw error;}}
+  const decode = row => row ? { ...row, images: JSON.parse(row.images),metadata:JSON.parse(row.metadata),media_sources:JSON.parse(row.media_sources), drive_files: linkedFiles(row.id) } : null;
+  const columns = ['slug','title','category','description','introduction','instructions','cover_url','images','attachment_url','drive_file_id','media_url','status','is_pinned','pin_order','is_spotlight','metadata','media_sources'];
+  const values = post => columns.map(key => ['images','metadata','media_sources'].includes(key) ? JSON.stringify(post[key]) : post[key]);
   const pinFields=(post,old)=>{
-    const is_pinned=post.is_pinned??old?.is_pinned??0,pin_order=post.pin_order??old?.pin_order??0;
+    let is_spotlight=post.is_spotlight??old?.is_spotlight??0;
+    if(post.is_pinned===0&&post.is_spotlight===undefined)is_spotlight=0;
+    const is_pinned=is_spotlight?1:post.is_pinned??old?.is_pinned??0,pin_order=post.pin_order??old?.pin_order??0;
+    if(is_spotlight&&db.prepare('SELECT id FROM posts WHERE is_spotlight=1 AND deleted_at IS NULL AND id<>?').get(old?.id||''))throw new InputError('Đã có Spotlight chính. Bỏ Spotlight ở bài hiện tại trước khi chọn bài khác.');
     if(is_pinned===1&&db.prepare('SELECT COUNT(*) AS n FROM posts WHERE is_pinned=1 AND deleted_at IS NULL AND id<>?').get(old?.id||'').n>=5)throw new InputError('Tối đa 5 bài ghim. Hãy bỏ ghim một bài trước.');
-    return{...post,is_pinned,pin_order};
+    return{...post,is_pinned,pin_order,is_spotlight,metadata:post.metadata??old?.metadata??{},media_sources:post.media_sources??old?.media_sources??[]};
   };
   return {
     close: () => db.close(),
@@ -152,8 +171,15 @@ export function openDatabase(filename) {
     softDelete(id){const now=new Date().toISOString();return db.prepare('UPDATE posts SET deleted_at=?,updated_at=? WHERE id=? AND deleted_at IS NULL').run(now,now,id).changes>0;},
     restore(id){const old=this.get(id,true);if(old?.deleted_at)pinFields(old,old);return db.prepare('UPDATE posts SET deleted_at=NULL,updated_at=? WHERE id=? AND deleted_at IS NOT NULL').run(new Date().toISOString(),id).changes>0;},
     setPin(id,is_pinned,pin_order){
-      db.exec('BEGIN IMMEDIATE');try{const old=this.get(id);if(!old){db.exec('ROLLBACK');return null;}const next=pinFields({...old,is_pinned,pin_order},old);
-        db.prepare('UPDATE posts SET is_pinned=?,pin_order=?,updated_at=? WHERE id=?').run(next.is_pinned,next.pin_order,new Date().toISOString(),id);
+      db.exec('BEGIN IMMEDIATE');try{const old=this.get(id);if(!old){db.exec('ROLLBACK');return null;}const next=pinFields({...old,is_pinned,pin_order,is_spotlight:is_pinned===0?0:old.is_spotlight},old);
+        db.prepare('UPDATE posts SET is_pinned=?,pin_order=?,is_spotlight=?,updated_at=? WHERE id=?').run(next.is_pinned,next.pin_order,next.is_spotlight,new Date().toISOString(),id);
+        const result=this.get(id);db.exec('COMMIT');return result;
+      }catch(error){db.exec('ROLLBACK');throw error;}
+    },
+    setSpotlight(id,selected){
+      db.exec('BEGIN IMMEDIATE');try{const old=this.get(id);if(!old){db.exec('ROLLBACK');return null;}
+        const next=pinFields({...old,is_spotlight:Number(selected)},old);
+        db.prepare('UPDATE posts SET is_pinned=?,is_spotlight=?,updated_at=? WHERE id=?').run(next.is_pinned,next.is_spotlight,new Date().toISOString(),id);
         const result=this.get(id);db.exec('COMMIT');return result;
       }catch(error){db.exec('ROLLBACK');throw error;}
     },
