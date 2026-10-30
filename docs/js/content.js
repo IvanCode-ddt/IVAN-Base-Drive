@@ -1,5 +1,5 @@
 import { CATEGORIES } from './data.js?v=14';
-import { imageURL,CONTENT_FIELDS,publicMetadata,formatBytes,mediaChoices,spotlightImageSet } from './media.js?v=16';
+import { imageURL,CONTENT_FIELDS,publicMetadata,formatBytes,mediaChoices,spotlightImageSet } from './media.js?v=17';
 import { renderMarkdown } from './markdown.js?v=15';
 export const categoryName=id=>CATEGORIES.find(c=>c.id===id)?.name||'Khác';
 export function escapeHTML(value=''){return String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
@@ -17,16 +17,20 @@ export function spotlightHTML(post,{active=true,index=0}={}){
 }
 export function albumCardHTML(album){
  const image=imageURL(album.cover_url);
- return`<article><a class="album-card" href="#album/${encodeURIComponent(album.slug)}">${image?`<img src="${escapeHTML(image)}" alt="" loading="lazy" decoding="async">`:'<div class="album-cover-placeholder" aria-hidden="true">♫</div>'}<div class="album-card-copy"><span class="eyebrow">ALBUM NHẠC · ${album.tracks.length} BÀI</span><h3>${escapeHTML(album.title)}</h3><p>${escapeHTML(album.artist||'Album nhạc')}</p><span class="album-card-cta">Mở album <span aria-hidden="true">↗</span></span></div></a></article>`;
+ const count=Array.isArray(album.bundle_downloads)?album.bundle_downloads.length:album.bundle_download?1:0;
+ return`<article><a class="album-card" href="#album/${encodeURIComponent(album.slug)}">${image?`<img src="${escapeHTML(image)}" alt="" loading="lazy" decoding="async">`:'<div class="album-cover-placeholder" aria-hidden="true">♫</div>'}<div class="album-card-copy"><span class="eyebrow">ALBUM NHẠC${count?` · ${count} GÓI TẢI`:''}</span><h3>${escapeHTML(album.title)}</h3><p>${escapeHTML(album.artist||'Album nhạc')}</p><span class="album-card-cta">Mở album <span aria-hidden="true">↗</span></span></div></a></article>`;
 }
 export function albumDetailHTML(album){
  const image=imageURL(album.cover_url);
- const tracks=album.tracks.map((track,index)=>{
-  const download=track.download?.url?safeDriveURL(track.download.url):'';
-  return`<li class="album-track"><span class="track-number">${index+1}</span><div class="track-copy"><strong>${escapeHTML(track.title)}</strong></div><div class="track-actions">${download?`<a class="secondary-button" href="${escapeHTML(download)}" target="_blank" rel="noopener noreferrer" download>Tải xuống</a>`:'<span class="field-help">Chưa có file tải công khai</span>'}</div></li>`;
- }).join('');
- const bundle=album.bundle_download?.url?safeDriveURL(album.bundle_download.url):'';
- return`<a class="back-link" href="#music">← Trở về Nhạc</a><article class="album-detail"><header class="album-detail-header">${image?`<img class="album-detail-cover" src="${escapeHTML(image)}" alt="Ảnh bìa ${escapeHTML(album.title)}" decoding="async">`:'<div class="album-detail-cover album-cover-placeholder" aria-hidden="true">♫</div>'}<div><p class="eyebrow">ALBUM NHẠC</p><h1 tabindex="-1">${escapeHTML(album.title)}</h1>${album.artist?`<p class="album-artist">${escapeHTML(album.artist)}</p>`:''}${album.description?`<p>${escapeHTML(album.description)}</p>`:''}<div class="album-actions">${bundle?`<a class="secondary-button" href="${escapeHTML(bundle)}" target="_blank" rel="noopener noreferrer" download>Tải toàn bộ album</a>`:''}</div></div></header><section class="album-track-section" aria-labelledby="album-track-title"><h2 id="album-track-title">Danh sách bài hát</h2><ol class="album-track-list">${tracks||'<li>Chưa có bài hát.</li>'}</ol></section></article>`;
+ const bundles=Array.isArray(album.bundle_downloads)?album.bundle_downloads:album.bundle_download?[album.bundle_download]:[];
+ const actions=bundles.length===1?(()=>{
+  const item=bundles[0],download=safeDriveURL(item.download_url||item.url),open=safeDriveURL(item.open_url||item.view_url);
+  return`<div class="album-download-actions">${download?`<a class="primary-button" href="${escapeHTML(download)}" target="_blank" rel="noopener noreferrer" download>Tải album</a>`:''}${open?`<a class="secondary-button" href="${escapeHTML(open)}" target="_blank" rel="noopener noreferrer">Mở trên Google Drive</a>`:''}</div>`;
+ })():bundles.length?`<section class="album-download-section" aria-labelledby="album-download-title"><h2 id="album-download-title">File tải album</h2><ul class="album-download-list">${bundles.map(item=>{
+  const download=safeDriveURL(item.download_url||item.url),open=safeDriveURL(item.open_url||item.view_url);
+  return`<li><strong>${escapeHTML(item.name||'Gói album')}</strong><div>${download?`<a class="secondary-button" href="${escapeHTML(download)}" target="_blank" rel="noopener noreferrer" download>Tải xuống</a>`:''}${open?`<a class="secondary-button" href="${escapeHTML(open)}" target="_blank" rel="noopener noreferrer">Mở trên Google Drive</a>`:''}</div></li>`;
+ }).join('')}</ul></section>`:'<p class="field-help">Chưa có file ZIP/RAR/7z được chia sẻ công khai.</p>';
+ return`<a class="back-link" href="#music">← Trở về Nhạc</a><article class="album-detail"><header class="album-detail-header">${image?`<img class="album-detail-cover" src="${escapeHTML(image)}" alt="Ảnh bìa ${escapeHTML(album.title)}" decoding="async">`:'<div class="album-detail-cover album-cover-placeholder" aria-hidden="true">♫</div>'}<div><p class="eyebrow">ALBUM NHẠC</p><h1 tabindex="-1">${escapeHTML(album.title)}</h1>${album.artist?`<p class="album-artist">${escapeHTML(album.artist)}</p>`:''}${album.description?`<p>${escapeHTML(album.description)}</p>`:''}${actions}</div></header></article>`;
 }
 function fileDate(value){const date=new Date(value);return value&&Number.isFinite(date.getTime())?new Intl.DateTimeFormat('vi-VN',{timeZone:'Asia/Ho_Chi_Minh',day:'2-digit',month:'2-digit',year:'numeric'}).format(date):'';}
 function mimeFormat(mime){return({'application/zip':'ZIP','video/mp4':'MP4','video/webm':'WebM','audio/mpeg':'MP3','audio/wav':'WAV','audio/flac':'FLAC','audio/ogg':'OGG'})[mime]||mime||'';}

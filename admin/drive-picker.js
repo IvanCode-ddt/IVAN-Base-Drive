@@ -2,10 +2,11 @@ import {escapeHTML} from '/js/content.js?v=9';
 import {normalizeSearch} from '/js/data.js?v=9';
 const $=s=>document.querySelector(s),esc=escapeHTML;
 const size=value=>value==null?'—':Number(value)<1024?`${value} B`:`${(Number(value)/1024/1024).toFixed(2)} MB`;
-export function initDrivePicker({api,onDirty}){
+export function initDrivePicker({api,onDirty,displayFilter=()=>true}){
  const dialog=$('#drive-picker'),cache=new Map();let selected=new Map(),working=new Map(),visible=[],folderId,pageToken,nextToken,history=[],version=0;
  function selectedList(){
-  $('#selected-drive-files').innerHTML=selected.size?[...selected.values()].map(f=>`<article class="selected-file"><div><strong>${esc(f.name||f.file_id)}</strong><small>${esc(f.mime_type||'Metadata cũ')} · ${size(f.size)} · ${f.sharing_confirmed===1?'Đã xác nhận chia sẻ':'Chưa xác nhận công khai'}</small></div><label class="attachment-consent"><input type="checkbox" data-share="${esc(f.file_id)}" ${f.sharing_confirmed===1?'checked':String()} ${f.sharing_access!=='anyone'?'disabled':String()}> ${f.sharing_access==='restricted'?'Restricted: chỉ quản trị thấy file, không công khai':f.sharing_access==='anyone'?'Tôi xác nhận cho phép công khai file này':'Chưa xác minh quyền Anyone; chọn lại file để cập nhật metadata'}</label><button type="button" class="secondary-button" data-remove="${esc(f.file_id)}">Gỡ</button></article>`).join(''):'<p class="field-help">Chưa chọn file đính kèm.</p>';
+  const visible=[...selected.values()].filter(displayFilter);
+  $('#selected-drive-files').innerHTML=visible.length?visible.map(f=>`<article class="selected-file"><div><strong>${esc(f.name||f.file_id)}</strong><small>${esc(f.mime_type||'Metadata cũ')} · ${size(f.size)} · ${f.sharing_confirmed===1?'Đã xác nhận chia sẻ':'Chưa xác nhận công khai'}</small></div><label class="attachment-consent"><input type="checkbox" data-share="${esc(f.file_id)}" ${f.sharing_confirmed===1?'checked':String()} ${f.sharing_access!=='anyone'?'disabled':String()}> ${f.sharing_access==='restricted'?'Restricted: chỉ quản trị thấy file, không công khai':f.sharing_access==='anyone'?'Tôi xác nhận cho phép công khai file này':'Chưa xác minh quyền Anyone; chọn lại file để cập nhật metadata'}</label><button type="button" class="secondary-button" data-remove="${esc(f.file_id)}">Gỡ</button></article>`).join(''):selected.size?'<p class="field-help">Các tệp đính kèm cũ khác vẫn được giữ nguyên khi lưu album.</p>':'<p class="field-help">Chưa chọn file nén cho album.</p>';
  }
  function render(){
   const query=normalizeSearch($('#picker-search').value.trim());const files=query?[...cache.values()].filter(f=>normalizeSearch(f.name).includes(query)):visible;

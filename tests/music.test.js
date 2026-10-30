@@ -67,41 +67,52 @@ test('album API requires OAuth, creates/reorders/edits tracks with stable IDs, a
   assert.deepEqual(saved.tracks.map(track=>track.id),[ids[2],ids[0],ids[1]]);assert.deepEqual(saved.tracks.map(track=>track.position),[0,1,2]);
   assert.equal(saved.post.title,'Edited Album');assert.ok(saved.post.updated_at>=created.post.updated_at);
   const publicAlbums=(await request(app).get('/api/music/albums').expect(200)).body;
-  assert.deepEqual(publicAlbums.albums[0].tracks.map(track=>track.title),['Third Track Edited','First Track','Second Track']);
+  assert.equal(Object.hasOwn(publicAlbums.albums[0],'tracks'),false);
   const publicPosts=(await request(app).get('/api/posts').expect(200)).body;
   assert.equal(publicPosts.find(post=>post.id===legacy.id).content_type,'post');assert.equal(publicPosts.find(post=>post.id===created.post_id).content_type,'music_album');
   assert.equal((await agent.get('/api/admin/music/albums').expect(200)).body.length,1);
+  const preservedTracks=db.musicAlbum(created.post_id).tracks;
+  const albumWithoutTrackEditor={...albumBody(),post:{...saved.post,title:'Edited Album without track editor',status:'draft'},album:{artist:'Test artist',release_year:'2024',genre:'Ambient',bundle_file_ids:[]}};
+  await write(agent,'put',`/api/admin/music/albums/${created.post_id}`,csrf,albumWithoutTrackEditor).expect(200);
+  assert.deepEqual(db.musicAlbum(created.post_id).tracks,preservedTracks);
+  const noArchive=albumBody();noArchive.post={...noArchive.post,slug:'published-without-archive'};noArchive.album={artist:'Test artist',bundle_file_ids:[]};
+  await write(agent,'post','/api/admin/music/albums',csrf,noArchive).expect(400);
   const invalid=albumBody();invalid.post={...invalid.post,slug:'unsafe-album-url'};invalid.album.tracks[0].direct_url='javascript:alert(1)';
   const sanitized=await write(agent,'post','/api/admin/music/albums',csrf,invalid).expect(201);
   assert.equal(sanitized.body.tracks[0].direct_url,'');
  }finally{close();}
 });
 
-test('Music albums expose only authorized Drive downloads, never streaming URLs or private files',()=>{
- const album=publicMusicAlbum({artist:'Artist',release_year:2022,genre:'Jazz',bundle_file_id:'bundle_123456',post:{id:'post-id',slug:'album',title:'Album',description:'',cover_url:'',updated_at:'2026-01-01',status:'published',is_pinned:false,pin_order:0,drive_files:[
+test('Music albums expose only authorized archive downloads and Drive fallbacks, never streaming URLs or private files',()=>{
+ const album=publicMusicAlbum({artist:'Artist',release_year:2022,genre:'Jazz',bundle_file_id:'bundle_123456',bundle_file_ids:['bundle_123456','bundle_rar_123456','private_bundle_123456'],post:{id:'post-id',slug:'album',title:'Album',description:'',cover_url:'',updated_at:'2026-01-01',status:'published',is_pinned:false,pin_order:0,drive_files:[
   {file_id:'audio_public_123',name:'Public.mp3',mime_type:'audio/mpeg',sharing_confirmed:1,sharing_access:'anyone',can_download:1,web_url:'https://drive.google.com/file/d/audio_public_123/view?resourcekey=public-key',download_url:'https://drive.google.com/uc?export=download&id=audio_public_123'},
   {file_id:'audio_private_123',name:'Private.mp3',mime_type:'audio/mpeg',sharing_confirmed:0,sharing_access:'restricted',can_download:1,web_url:'https://drive.google.com/file/d/audio_private_123/view',download_url:'https://drive.google.com/uc?id=audio_private_123'},
   {file_id:'bundle_123456',name:'Album.zip',mime_type:'application/zip',sharing_confirmed:1,sharing_access:'anyone',can_download:1,download_url:'https://drive.google.com/uc?export=download&id=bundle_123456'},
+  {file_id:'bundle_rar_123456',name:'Album Part 2.rar',mime_type:'application/vnd.rar',sharing_confirmed:1,sharing_access:'anyone',can_download:0,web_url:'https://drive.google.com/file/d/bundle_rar_123456/view'},
+  {file_id:'private_bundle_123456',name:'Private.7z',mime_type:'application/x-7z-compressed',sharing_confirmed:0,sharing_access:'restricted',can_download:1,download_url:'https://drive.google.com/uc?id=private_bundle_123456'},
  ]},tracks:[
   {id:'1',position:0,title:'Preview',duration_seconds:100,source_kind:'drive_preview',drive_file_id:'audio_public_123',sharing_confirmed:0},
   {id:'2',position:1,title:'Private',duration_seconds:null,source_kind:'drive_preview',drive_file_id:'audio_private_123',sharing_confirmed:0},
   {id:'3',position:2,title:'Direct',duration_seconds:120,source_kind:'direct',direct_url:'https://media.example.test/direct.mp3',mime_type:'audio/mpeg',drive_file_id:'',sharing_confirmed:1},
  ]});
- assert.equal(album.tracks[0].title,'Preview');assert.ok(album.tracks[0].download.url);
- assert.equal(album.tracks[1].download,null);assert.equal(album.tracks[2].download,null);
+ assert.equal(album.bundle_downloads.length,2);
+ assert.equal(album.bundle_downloads[0].download_url,'https://drive.google.com/uc?export=download&id=bundle_123456');
+ assert.equal(album.bundle_downloads[1].download_url,'');assert.match(album.bundle_downloads[1].open_url,/bundle_rar_123456/);
+ assert.equal(Object.hasOwn(album,'tracks'),false);
  assert.ok(!JSON.stringify(album).includes('playback_url'));assert.ok(!JSON.stringify(album).includes('media.example.test'));
- assert.equal(album.bundle_download.name,'Album.zip');assert.ok(!JSON.stringify(album).includes('audio_private_123'));
+ assert.ok(!JSON.stringify(album).includes('audio_private_123'));assert.ok(!JSON.stringify(album).includes('private_bundle_123456'));
 });
 
-test('static export writes only Published albums and exports ordered public tracks separately',async()=>{
+test('static export writes only Published albums and exports authorized archive downloads only',async()=>{
  const directory=await mkdtemp(path.join(tmpdir(),'ivan-music-export-')),filename=path.join(directory,'db.sqlite'),output=path.join(directory,'docs');let db;
  try{
   db=openDatabase(filename);
   const body=validatePost({...postBody,title:'Exported Album',slug:'exported-album',description:'Exported album description'});
   const audio={file_id:'audio_public_123',name:'Song.mp3',mime_type:'audio/mpeg',size:'1000',modified_time:'',web_url:'https://drive.google.com/file/d/audio_public_123/view?resourcekey=audio-key',download_url:'https://drive.google.com/uc?export=download&id=audio_public_123&resourcekey=audio-key',can_download:1,sharing_access:'anyone',requested_sharing:true};
   const zip={file_id:'bundle_public_123',name:'Album.zip',mime_type:'application/zip',size:'2000',modified_time:'',web_url:'https://drive.google.com/file/d/bundle_public_123/view',download_url:'https://drive.google.com/uc?export=download&id=bundle_public_123',can_download:1,sharing_access:'anyone',requested_sharing:true};
+  const rar={file_id:'bundle_rar_public_123',name:'Album Part 2.rar',mime_type:'application/vnd.rar',size:'1000',modified_time:'',web_url:'https://drive.google.com/file/d/bundle_rar_public_123/view',download_url:'https://drive.google.com/uc?export=download&id=bundle_rar_public_123',can_download:1,sharing_access:'anyone',requested_sharing:true};
   const hidden={file_id:'private_audio_123',name:'Private.mp3',mime_type:'audio/mpeg',size:'3000',modified_time:'',web_url:'https://drive.google.com/file/d/private_audio_123/view',download_url:'https://drive.google.com/uc?id=private_audio_123',can_download:1,sharing_access:'restricted',requested_sharing:false};
-  const album=db.saveMusicAlbum(body,null,[audio,zip,hidden],{artist:'Export Artist',release_year:2025,genre:'Ambient',bundle_file_id:zip.file_id,tracks:[
+  const album=db.saveMusicAlbum(body,null,[audio,zip,rar,hidden],{artist:'Export Artist',release_year:2025,genre:'Ambient',bundle_file_id:zip.file_id,bundle_file_ids:[zip.file_id,rar.file_id],tracks:[
    {id:'',title:'Stream',duration_seconds:150,source_kind:'direct',direct_url:'https://media.example.test/stream.mp3',mime_type:'audio/mpeg',drive_file_id:'',sharing_confirmed:true},
    {id:'',title:'Preview',duration_seconds:180,source_kind:'drive_preview',direct_url:'',mime_type:'',drive_file_id:audio.file_id,sharing_confirmed:false},
    {id:'',title:'Private download',duration_seconds:null,source_kind:'download_only',direct_url:'',mime_type:'',drive_file_id:hidden.file_id,sharing_confirmed:false},
@@ -109,11 +120,12 @@ test('static export writes only Published albums and exports ordered public trac
   assert.equal(album.tracks.length,3);db.create(validatePost({...postBody,title:'Draft Album',slug:'draft-album',description:'Draft album',status:'draft'}));
   const exported=await exportStatic({databasePath:filename,outputDir:output});assert.equal(exported.count,1);
   const musicText=await readFile(path.join(output,'content','music.json'),'utf8'),data=JSON.parse(musicText);
-  assert.equal(data.albums.length,1);assert.deepEqual(data.albums[0].tracks.map(track=>track.position),[0,1,2]);
-  assert.equal(data.albums[0].tracks[0].download,null);
-  assert.equal(data.albums[0].tracks[1].download.name,'Song.mp3');assert.match(data.albums[0].tracks[1].download.url,/audio_public_123/);
-  assert.equal(data.albums[0].tracks[2].download,null);assert.equal(data.albums[0].bundle_download.name,'Album.zip');
-  for(const secret of ['private_audio_123','Draft Album','sharing_confirmed','admin@example.com','playback_url','media.example.test','open_url'])assert.ok(!musicText.includes(secret));
+  assert.equal(data.albums.length,1);assert.deepEqual(data.albums[0].bundle_downloads.map(file=>file.name),['Album.zip','Album Part 2.rar']);
+  assert.match(data.albums[0].bundle_downloads[0].download_url,/bundle_public_123/);
+  assert.match(data.albums[0].bundle_downloads[1].open_url,/bundle_rar_public_123/);
+  assert.equal(Object.hasOwn(data.albums[0],'tracks'),false);
+  assert.equal(db.musicAlbum(album.post_id).tracks.length,3);
+  for(const secret of ['private_audio_123','Private download','Draft Album','sharing_confirmed','admin@example.com','playback_url','media.example.test'])assert.ok(!musicText.includes(secret));
   assert.ok(!JSON.stringify(JSON.parse(await readFile(path.join(output,'content','posts.json'),'utf8'))).includes('media.example.test'));
   assert.ok(JSON.parse(await readFile(path.join(output,'content','posts.json'),'utf8')).posts.some(post=>post.id===album.post_id&&post.content_type==='music_album'));
   assert.deepEqual(readMusicAlbums(filename),data.albums);

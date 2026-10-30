@@ -1,14 +1,14 @@
-import { MEDIA_TYPES, directMediaURL } from '../js/media.js';
+import { MEDIA_TYPES,directMediaURL,isDownloadArchive } from '../js/media.js';
 import { DriveError } from './drive.js';
 import { selectedDriveFiles } from './drive-routes.js';
 import { InputError, validatePost } from './posts.js';
 
-const RAR_TYPES = new Set(['application/vnd.rar', 'application/x-rar-compressed', 'application/x-7z-compressed']);
-const validBundle = file => file && (file.mime_type === 'application/zip' || RAR_TYPES.has(file.mime_type) || /\.(zip|rar|7z)$/i.test(file.name || ''));
+const DRIVE_HOSTS=new Set(['drive.google.com','docs.google.com','drive.usercontent.google.com']);
 const safePublicURL = value => {
   try {
     const url = new URL(value);
-    return url.protocol === 'https:' && !url.username && !url.password ? url.href : '';
+    const sensitive=[...url.searchParams.keys()].some(key=>/^(access_token|oauth_token|refresh_token|client_secret|id_token)$/i.test(key));
+    return url.protocol === 'https:' && DRIVE_HOSTS.has(url.hostname) && !url.username && !url.password && !sensitive ? url.href : '';
   } catch { return ''; }
 };
 
@@ -24,11 +24,11 @@ function validateAlbum(body, files) {
   if (typeof artist !== 'string' || artist.length > 160 || typeof genre !== 'string' || genre.length > 100) throw new InputError('Nghệ sĩ hoặc thể loại album không hợp lệ.');
   const releaseYear = album.release_year === '' || album.release_year == null ? null : Number(album.release_year);
   if (releaseYear !== null && (!Number.isInteger(releaseYear) || releaseYear < 1888 || releaseYear > 2200)) throw new InputError('Năm phát hành phải nằm trong khoảng 1888 đến 2200.');
-  if (!Array.isArray(album.tracks) || album.tracks.length > 500) throw new InputError('Album cần tối đa 500 track.');
-  if (post.status === 'published' && !album.tracks.length) throw new InputError('Album Published cần ít nhất một bài hát.');
+  if (album.tracks !== undefined && (!Array.isArray(album.tracks) || album.tracks.length > 500)) throw new InputError('Album cần tối đa 500 track.');
+  if (post.status === 'published' && Array.isArray(album.tracks) && !album.tracks.length) throw new InputError('Album Published cần ít nhất một bài hát.');
   const byId = new Map(files.map(file => [file.file_id, file]));
   const seen = new Set();
-  const tracks = album.tracks.map((track, index) => {
+  const tracks = Array.isArray(album.tracks)?album.tracks.map((track, index) => {
     if (!track || typeof track !== 'object' || typeof track.title !== 'string' || !track.title.trim() || track.title.length > 160) throw new InputError(`Tên bài hát ở vị trí ${index + 1} không hợp lệ.`);
     const id = track.id || '';
     if (id && (!/^[a-f0-9-]{36}$/i.test(id) || seen.has(id))) throw new InputError('Track ID không hợp lệ hoặc bị trùng.');
@@ -48,10 +48,12 @@ function validateAlbum(body, files) {
       direct_url: directMediaURL(directUrl), mime_type: MEDIA_TYPES.includes(mimeType) ? mimeType : '',
       drive_file_id: driveFileId, sharing_confirmed: sharingConfirmed,
     };
-  });
-  const bundleFileId = album.bundle_file_id ?? '';
-  if (typeof bundleFileId !== 'string' || (bundleFileId && !validBundle(byId.get(bundleFileId)))) throw new InputError('File tải toàn bộ cần là ZIP, RAR hoặc 7z đã chọn từ Google Drive.');
-  return { post, album: { artist: artist.trim(), release_year: releaseYear, genre: genre.trim(), bundle_file_id: bundleFileId, tracks } };
+  }):undefined;
+  const requestedBundleIds=album.bundle_file_ids??(album.bundle_file_id?[album.bundle_file_id]:[]);
+  if(!Array.isArray(requestedBundleIds)||requestedBundleIds.length>50||requestedBundleIds.some(id=>typeof id!=='string')||new Set(requestedBundleIds).size!==requestedBundleIds.length)throw new InputError('Danh sách gói album không hợp lệ.');
+  if(requestedBundleIds.some(id=>!isDownloadArchive(byId.get(id))))throw new InputError('Mỗi file tải album phải là ZIP, RAR hoặc 7z đã chọn từ Google Drive.');
+  if(post.status==='published'&&!requestedBundleIds.length&&!Array.isArray(album.tracks))throw new InputError('Album Published cần ít nhất một file ZIP, RAR hoặc 7z.');
+  return { post, album: { artist: artist.trim(), release_year: releaseYear, genre: genre.trim(), bundle_file_id: requestedBundleIds[0]||'',bundle_file_ids:requestedBundleIds,...(tracks?{tracks}:{}) } };
 }
 
 function downloadFor(file, files) {
@@ -62,20 +64,23 @@ function downloadFor(file, files) {
 export function publicMusicAlbum(album) {
   if (!album?.post || album.post.status !== 'published' || album.post.deleted_at) return null;
   const post = album.post, files = post.drive_files || [];
-  const tracks = album.tracks.map(track => {
-    const download = downloadFor(track.drive_file_id, files);
-    return {
-      id: track.id, position: track.position, title: track.title,
-      download: download?.url ? download : null,
-    };
-  });
-  const bundle = downloadFor(album.bundle_file_id, files);
+  let bundleFileIds=album.bundle_file_ids;
+  if(!Array.isArray(bundleFileIds)){
+    const stored=album.bundle_file_id||'';
+    try{const parsed=JSON.parse(stored);bundleFileIds=Array.isArray(parsed)?parsed:stored?[stored]:[];}catch{bundleFileIds=stored?[stored]:[];}
+  }
+  const bundles=bundleFileIds.map(id=>{
+    const file=files.find(item=>item.file_id===id&&item.sharing_confirmed===1&&item.sharing_access==='anyone');
+    if(!file||!isDownloadArchive(file))return null;
+    const download=downloadFor(id,files),open=safePublicURL(file.web_url);
+    if(!download?.url&&!open)return null;
+    return{name:file.name||'Gói album',download_url:download?.url||'',open_url:open};
+  }).filter(Boolean);
   return {
     post_id: post.id, slug: post.slug, title: post.title, description: post.description,
     cover_url: post.cover_url, updated_at: post.updated_at, is_pinned:post.is_pinned, pin_order:post.pin_order,
     artist: album.artist,
-    tracks,
-    bundle_download: bundle?.url ? bundle : null,
+    bundle_downloads:bundles,
   };
 }
 

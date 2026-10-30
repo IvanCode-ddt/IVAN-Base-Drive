@@ -1,6 +1,6 @@
 import { CATEGORIES,filterPosts,sortPinnedPosts } from './data.js?v=15';
-import { cover,detailHTML,escapeHTML,categoryName,spotlightHTML,albumCardHTML,albumDetailHTML } from './content.js?v=18';
-import { createPostSource } from './post-source.js?v=11';
+import { cover,detailHTML,escapeHTML,categoryName,spotlightHTML,albumCardHTML,albumDetailHTML } from './content.js?v=19';
+import { createPostSource } from './post-source.js?v=12';
 import {initPlayers} from './media.js?v=14';
 const source=createPostSource();
 const $=s=>document.querySelector(s);
@@ -50,7 +50,7 @@ function renderPosts(){
   showEmpty(comingSoon,query);return;
  }
  const musicPosts=posts.filter(post=>post.category==='music'&&!albumIds.has(post.id));
- const visibleAlbums=albums.filter(album=>`${album.title} ${album.artist||''} ${album.description||''} ${album.genre||''} ${album.tracks.map(track=>track.title).join(' ')}`.toLocaleLowerCase('vi').includes(query.toLocaleLowerCase('vi')));
+ const visibleAlbums=albums.filter(album=>`${album.title} ${album.artist||''} ${album.description||''} ${album.genre||''}`.toLocaleLowerCase('vi').includes(query.toLocaleLowerCase('vi')));
  const legacy=sortPinnedPosts(filterPosts(musicPosts,query,'music'));
  $('#result-count').textContent=`${visibleAlbums.length} album · ${legacy.length} nội dung khác`;
  $('#album-grid').innerHTML=visibleAlbums.map(albumCardHTML).join('');

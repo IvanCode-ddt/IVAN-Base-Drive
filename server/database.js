@@ -167,6 +167,7 @@ export function openDatabase(filename) {
     return{...post,is_pinned,pin_order,is_spotlight,metadata:post.metadata??old?.metadata??{},media_sources:post.media_sources??old?.media_sources??[],minimum_requirements:Object.hasOwn(post,'minimum_requirements')?post.minimum_requirements:old?.minimum_requirements??'',recommended_requirements:Object.hasOwn(post,'recommended_requirements')?post.recommended_requirements:old?.recommended_requirements??'',install_size:Object.hasOwn(post,'install_size')?post.install_size:old?.install_size??'',operating_systems:post.operating_systems??old?.operating_systems??[]};
   };
   const musicTracks=postId=>db.prepare('SELECT * FROM music_tracks WHERE album_id=? ORDER BY position,id').all(postId);
+  const musicBundleIds=value=>{if(!value)return[];try{const parsed=JSON.parse(value);return Array.isArray(parsed)?parsed:[value];}catch{return[value];}};
   return {
     close: () => db.close(),
     linkedFiles,
@@ -184,7 +185,7 @@ export function openDatabase(filename) {
       }))};
     },
     isMusicAlbum(postId){return !!db.prepare('SELECT 1 FROM music_albums WHERE post_id=?').get(postId);},
-    musicAlbum(postId){const row=db.prepare('SELECT * FROM music_albums WHERE post_id=?').get(postId);if(!row)return null;return{...row,post:decode(db.prepare('SELECT * FROM posts WHERE id=? AND deleted_at IS NULL').get(postId)),tracks:musicTracks(postId)};},
+    musicAlbum(postId){const row=db.prepare('SELECT * FROM music_albums WHERE post_id=?').get(postId);if(!row)return null;const bundle_file_ids=musicBundleIds(row.bundle_file_id);return{...row,bundle_file_id:bundle_file_ids[0]||'',bundle_file_ids,post:decode(db.prepare('SELECT * FROM posts WHERE id=? AND deleted_at IS NULL').get(postId)),tracks:musicTracks(postId)};},
     musicAlbums({publicOnly=false}={}){
       const where=publicOnly?"WHERE p.status='published' AND p.deleted_at IS NULL":"WHERE p.deleted_at IS NULL";
       return db.prepare(`SELECT m.post_id FROM music_albums m JOIN posts p ON p.id=m.post_id ${where} ORDER BY p.updated_at DESC,p.id`).all().map(row=>this.musicAlbum(row.post_id)).filter(album=>album?.post);
@@ -198,20 +199,24 @@ export function openDatabase(filename) {
         if(id&&!this.isMusicAlbum(id))throw new InputError('Bài nhạc cũ không tự chuyển thành album. Tạo một album mới để giữ nguyên dữ liệu gốc.');
         if(id&&old.category!=='music')throw new InputError('Không thể đổi danh mục của một album nhạc.');
         const fileIds=new Set(files.map(file=>file.file_id));
-        if(album.bundle_file_id&&!fileIds.has(album.bundle_file_id))throw new InputError('File tải toàn bộ chưa được chọn trong danh sách Google Drive.');
-        for(const track of album.tracks)if(track.drive_file_id&&!fileIds.has(track.drive_file_id))throw new InputError(`File Drive của track “${track.title}” chưa được chọn.`);
+        const bundleFileIds=album.bundle_file_ids??(album.bundle_file_id?[album.bundle_file_id]:[]);
+        if(bundleFileIds.some(fileId=>!fileIds.has(fileId)))throw new InputError('File tải album chưa được chọn trong danh sách Google Drive.');
+        if(Array.isArray(album.tracks))for(const track of album.tracks)if(track.drive_file_id&&!fileIds.has(track.drive_file_id))throw new InputError(`File Drive của track “${track.title}” chưa được chọn.`);
         const saved=id?this.update(id,post):this.create(post);if(!saved){db.exec('ROLLBACK');return null;}
         for(const oldFile of linkedFiles(saved.id))if(!fileIds.has(oldFile.file_id))this.unlinkFile(saved.id,oldFile.file_id);
         for(const file of files){this.linkFile(saved.id,file);if(file.requested_sharing!==undefined)this.confirmFile(saved.id,file.file_id,file.requested_sharing?file:null,adminEmail);}
+        const storedBundleIds=bundleFileIds.length>1?JSON.stringify(bundleFileIds):bundleFileIds[0]||'';
         db.prepare(`INSERT INTO music_albums(post_id,artist,release_year,genre,bundle_file_id) VALUES(?,?,?,?,?)
           ON CONFLICT(post_id) DO UPDATE SET artist=excluded.artist,release_year=excluded.release_year,genre=excluded.genre,bundle_file_id=excluded.bundle_file_id`)
-          .run(saved.id,album.artist,album.release_year,album.genre,album.bundle_file_id);
-        const oldIds=new Set(musicTracks(saved.id).map(track=>track.id));
-        for(const track of album.tracks)if(track.id&&!oldIds.has(track.id))throw new InputError('Track ID không thuộc album này.');
-        db.prepare('DELETE FROM music_tracks WHERE album_id=?').run(saved.id);
-        const insert=db.prepare(`INSERT INTO music_tracks(id,album_id,position,title,duration_seconds,source_kind,direct_url,mime_type,drive_file_id,sharing_confirmed)
-          VALUES(?,?,?,?,?,?,?,?,?,?)`);
-        album.tracks.forEach((track,position)=>insert.run(track.id||randomUUID(),saved.id,position,track.title,track.duration_seconds,track.source_kind,track.direct_url,track.mime_type,track.drive_file_id,Number(track.sharing_confirmed)));
+          .run(saved.id,album.artist,album.release_year,album.genre,storedBundleIds);
+        if(Array.isArray(album.tracks)){
+          const oldIds=new Set(musicTracks(saved.id).map(track=>track.id));
+          for(const track of album.tracks)if(track.id&&!oldIds.has(track.id))throw new InputError('Track ID không thuộc album này.');
+          db.prepare('DELETE FROM music_tracks WHERE album_id=?').run(saved.id);
+          const insert=db.prepare(`INSERT INTO music_tracks(id,album_id,position,title,duration_seconds,source_kind,direct_url,mime_type,drive_file_id,sharing_confirmed)
+            VALUES(?,?,?,?,?,?,?,?,?,?)`);
+          album.tracks.forEach((track,position)=>insert.run(track.id||randomUUID(),saved.id,position,track.title,track.duration_seconds,track.source_kind,track.direct_url,track.mime_type,track.drive_file_id,Number(track.sharing_confirmed)));
+        }
         let result=this.musicAlbum(saved.id);
         if(old&&(JSON.stringify(beforeAlbum)!==JSON.stringify(result)||JSON.stringify(beforeFiles)!==JSON.stringify(linkedFiles(saved.id)))&&result.post.updated_at===old.updated_at){
           db.prepare('UPDATE posts SET updated_at=? WHERE id=?').run(new Date().toISOString(),saved.id);

@@ -1,4 +1,6 @@
 export const UPLOAD_PATH = /^uploads\/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\.webp$/;
+const ARCHIVE_TYPES = new Set(['application/zip','application/vnd.rar','application/x-rar-compressed','application/x-7z-compressed']);
+export function isDownloadArchive(file){return !!file&&(ARCHIVE_TYPES.has(file.mime_type)||/\.(zip|rar|7z)$/i.test(file.name||''));}
 export function isUploadPath(value) { return typeof value === 'string' && UPLOAD_PATH.test(value); }
 export function imageURL(value) {
   if (isUploadPath(value)) {

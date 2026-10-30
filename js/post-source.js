@@ -24,7 +24,7 @@ export function createPostSource({location=globalThis.location,fetcher=globalThi
   }
   async function musicAlbums() {
     if(!albumSnapshot)albumSnapshot=json(local?'/api/music/albums':new URL('./content/music.json',location.href).href).then(data=>{
-      if(data.schemaVersion!==1||!Array.isArray(data.albums)||data.albums.some(album=>!Array.isArray(album.tracks)))throw new Error(local?'Dữ liệu album nhạc không hợp lệ.':'Dữ liệu album nhạc không hợp lệ. Hãy xuất lại website.');
+      if(data.schemaVersion!==1||!Array.isArray(data.albums)||data.albums.some(album=>typeof album.title!=='string'||!Array.isArray(album.bundle_downloads)))throw new Error(local?'Dữ liệu album nhạc không hợp lệ.':'Dữ liệu album nhạc không hợp lệ. Hãy xuất lại website.');
       return data.albums;
     }).catch(error=>{albumSnapshot=undefined;throw error;});
     return albumSnapshot;

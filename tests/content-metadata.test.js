@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {openDatabase} from '../server/database.js';
 import {validatePost} from '../server/posts.js';
-import {detailHTML,smartMetadataHTML} from '../js/content.js';
+import {detailHTML,smartMetadataHTML,albumDetailHTML} from '../js/content.js';
 import {renderMarkdown} from '../js/markdown.js';
 import {formatBytes} from '../js/media.js';
 import {publicPost} from '../server/public-post.js';
@@ -25,6 +25,16 @@ test('detail view keeps every public file download in the sidebar and orders the
  assert.ok(html.includes('data-download-jump'));
  assert.equal((html.match(/loading="lazy"/g)||[]).length,2);
  assert.ok(!html.includes('<details class="detail-section file-details" open'));
+});
+test('album download page renders one or multiple archives without track or player controls',()=>{
+ const one=albumDetailHTML({slug:'single',title:'Single archive',artist:'Artist',description:'Description',cover_url:'',bundle_downloads:[{name:'album.zip',download_url:'https://drive.google.com/uc?export=download&id=one',open_url:'https://drive.google.com/file/d/one/view'}]});
+ assert.ok(one.includes('Tải album'));assert.ok(one.includes('Mở trên Google Drive'));assert.match(one,/id=one/);
+ const many=albumDetailHTML({slug:'multiple',title:'Multi archive',artist:'Artist',description:'Description',cover_url:'',bundle_downloads:[
+  {name:'part-a.zip',download_url:'https://drive.google.com/uc?export=download&id=a',open_url:'https://drive.google.com/file/d/a/view'},
+  {name:'part-b.rar',download_url:'',open_url:'https://drive.google.com/file/d/b/view'},
+ ]});
+ assert.ok(many.includes('Tải xuống'));assert.ok(many.includes('part-a.zip')&&many.includes('part-b.rar'));assert.equal((many.match(/Mở trên Google Drive/g)||[]).length,2);
+ for(const html of [one,many]){assert.ok(!html.includes('<audio'));assert.ok(!html.includes('<video'));assert.ok(!html.includes('Danh sách bài hát'));assert.ok(!html.includes('Play'));}
 });
 test('basic information is common to Game and App, trusts Drive file sizes, and uses the stored post timestamp',()=>{
  const file1={file_id:'large-file',name:'Game archive',size:'1073741824'},file2={file_id:'unknown-size',name:'Patch',size:null};
