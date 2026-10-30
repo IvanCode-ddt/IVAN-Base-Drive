@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "enabled": true,
-  "interval_seconds": 6,
+  "interval_seconds": 5,
   "slides": [
     {
       "post_id": "bb4a76a0-0754-4659-a19e-f874c94cabce",
