@@ -40,13 +40,16 @@ test('public Library/Music/Film routes, download-only albums, and responsive lay
  try{
   assert.equal(JSON.parse(await readFile(path.join(site,'content/music.json'),'utf8')).albums.length,1);
   browser=await chromium.launch({channel:'msedge',headless:true});
-  for(const viewport of [{width:1440,height:1000},{width:390,height:844}]){
+  for(const viewport of [{width:1366,height:1000},{width:1440,height:1000},{width:1920,height:1080},{width:390,height:844}]){
    const context=await browser.newContext({viewport});
    const page=await context.newPage(),errors=[];page.on('pageerror',error=>errors.push(error.message));
    await page.goto(origin+'/site/');await page.locator('#post-grid .post-card').waitFor();
    assert.deepEqual(await page.locator('#post-grid h3').allTextContents(),['Ordinary Game']);
+   const initialIndicator=await page.locator('#content-groups').evaluate(node=>node.style.getPropertyValue('--group-indicator-x'));
    await page.locator('[data-group="music"]').click();await page.waitForURL(/#music$/);
+   await page.waitForFunction(()=>document.querySelector('[data-group="music"]').getAttribute('aria-current')==='page');
    assert.deepEqual(errors,[]);
+   assert.notEqual(await page.locator('#content-groups').evaluate(node=>node.style.getPropertyValue('--group-indicator-x')),initialIndicator);
    assert.equal(await page.locator('#album-grid .album-card h3').textContent(),'Browser Album');
    assert.equal(await page.locator('#legacy-music-grid h3').textContent(),'Legacy Music Post');
    await page.locator('#search-input').fill('Browser Album');assert.equal(await page.locator('#album-grid .album-card').count(),1);
@@ -67,9 +70,10 @@ test('public Library/Music/Film routes, download-only albums, and responsive lay
    assert.equal(await page.locator('audio,video').count(),0);
    assert.equal(await page.locator('.album-detail button, .album-detail iframe, .album-detail [data-play-track], .album-detail [data-play-album], .album-detail [data-shuffle], .album-detail [data-repeat], .album-detail [data-next], .album-detail [data-previous]').count(),0);
    assert.ok(!(await page.locator('.album-detail').textContent()).includes('Phát'));
-   assert.equal(await page.locator('.ambient-particles i').count(),8);
+   assert.equal(await page.locator('.ambient-particles i').count(),18);
    assert.equal(await page.locator('.ambient-particles').evaluate(node=>getComputedStyle(node).pointerEvents),'none');
-   if(viewport.width<600)assert.equal(await page.locator('.ambient-particles i:visible').count(),4);
+   if(viewport.width<600)assert.equal(await page.locator('.ambient-particles i:visible').count(),6);
+   else assert.equal(await page.locator('.ambient-particles i:visible').count(),18);
    await page.emulateMedia({reducedMotion:'reduce'});
    assert.equal(await page.evaluate(()=>document.getAnimations().some(animation=>animation.animationName==='ivan-particle-drift')),false);
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true);
@@ -81,7 +85,7 @@ test('public Library/Music/Film routes, download-only albums, and responsive lay
   });
   const weakPage=await weakContext.newPage();await weakPage.goto(origin+'/site/');await weakPage.locator('#post-grid .post-card').first().waitFor();
   assert.equal(await weakPage.locator('body').evaluate(node=>node.classList.contains('ambient-motion')),false);
-  assert.equal(await weakPage.locator('.ambient-particles i').count(),8);
+  assert.equal(await weakPage.locator('.ambient-particles i').count(),18);
   await weakContext.close();
  }finally{await browser?.close();await new Promise(resolve=>staticServer.close(resolve));await new Promise(resolve=>server.close(resolve));db.close();await rm(directory,{recursive:true,force:true});}
 });

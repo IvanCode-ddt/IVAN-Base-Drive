@@ -9,6 +9,13 @@ const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)');
 const ambientViewport=matchMedia('(min-width:1024px) and (hover:hover) and (pointer:fine)');
 const weakDevice=(navigator.hardwareConcurrency&&navigator.hardwareConcurrency<=4)||(navigator.deviceMemory&&navigator.deviceMemory<=4)||navigator.connection?.saveData;
 const entrances=new Set();
+function syncGroupIndicator(){
+ const nav=$('#content-groups'),active=nav.querySelector('[aria-current=page]');
+ if(!active)return;
+ const navRect=nav.getBoundingClientRect(),activeRect=active.getBoundingClientRect();
+ nav.style.setProperty('--group-indicator-x',`${activeRect.left-navRect.left}px`);
+ nav.style.setProperty('--group-indicator-width',`${activeRect.width}px`);
+}
 function syncMotion(){
  document.body.classList.toggle('ambient-motion',ambientViewport.matches&&!reducedMotion.matches&&!weakDevice);
  document.body.classList.toggle('motion-paused',document.hidden);
@@ -16,7 +23,7 @@ function syncMotion(){
 }
 function enter(node,distance=8){
  if(!node?.animate||reducedMotion.matches||document.hidden||weakDevice)return;
- const animation=node.animate([{opacity:.92,transform:`translate3d(0,${distance}px,0)`},{opacity:1,transform:'translate3d(0,0,0)'}],{duration:230,easing:'cubic-bezier(.22,.7,.25,1)'});
+ const animation=node.animate([{opacity:.92,transform:`translate3d(0,${distance}px,0)`},{opacity:1,transform:'translate3d(0,0,0)'}],{duration:360,easing:'cubic-bezier(.16,1,.3,1)'});
  entrances.add(animation);animation.finished.then(()=>entrances.delete(animation),()=>entrances.delete(animation));
 }
 reducedMotion.addEventListener?.('change',syncMotion);ambientViewport.addEventListener?.('change',syncMotion);
@@ -35,6 +42,7 @@ function renderPosts(){
  $('#collection-title').textContent=group==='library'?'Khám phá thư viện':group==='music'?'Nhạc':'Phim';
  $('#collection-eyebrow').textContent=group==='library'?'ĐƯỢC CHỌN CHO BẠN':group==='music'?'ALBUM & BÀI HÁT':'IVAN CINEMA';
  for(const link of document.querySelectorAll('[data-group]')){if(link.dataset.group===group)link.setAttribute('aria-current','page');else link.removeAttribute('aria-current');}
+ syncGroupIndicator();
  $('#category-filters').hidden=group!=='library';
  $('.toolbar').hidden=group==='films';
  grid.hidden=group!=='library';music.hidden=group!=='music';films.hidden=group!=='films';
@@ -71,6 +79,7 @@ function renderGroup(){
  group=hash==='#music'?'music':hash==='#films'?'films':'library';
  $('#library-intro').hidden=group!=='library';
  renderPosts();
+ enter(group==='library'?$('#post-grid'):group==='music'?$('#music-view'):$('#film-view'),4);
 }
 function renderHighlights(config){
  const available=new Map(posts.filter(post=>post.status==='published'&&!post.deleted_at).map(post=>[post.id,post]));
@@ -144,6 +153,7 @@ async function route(){
    const slug=decodeURIComponent(hash.slice(7)),album=albums.find(item=>item.slug===slug);
    if(!album)throw new Error('Album không tồn tại hoặc chưa được xuất bản.');
    group='music';detail.innerHTML=albumDetailHTML(album);
+   enter(detail.querySelector('.album-detail-header'),5);
    document.title=`${album.title} — IVAN Base Drive`;window.scrollTo(0,0);detail.querySelector('h1').focus({preventScroll:true});
   }catch(error){if(version===routeVersion)detail.innerHTML=`<a class="back-link" href="#music">← Trở về Nhạc</a><p role="alert">${escapeHTML(error.message)}</p>`;}
  }else{
@@ -193,4 +203,4 @@ $('#feedback-open').addEventListener('click',()=>openFeedback());
 $('#feedback-request').addEventListener('click',()=>openFeedback($('#search-input').value.trim()));
 $('#feedback-close').addEventListener('click',()=>{$('#feedback-dialog').close();$('#feedback-frame').replaceChildren();});
 $('#feedback-dialog').addEventListener('close',()=>$('#feedback-frame').replaceChildren());
-window.addEventListener('hashchange',route);renderFilters();load();route();enter($('#spotlight').hidden?$('.hero-copy'):$('#spotlight .spotlight-copy'),6);
+window.addEventListener('hashchange',route);window.addEventListener('resize',syncGroupIndicator,{passive:true});renderFilters();load();route();enter($('#spotlight').hidden?$('.hero-copy'):$('#spotlight .spotlight-copy'),6);
