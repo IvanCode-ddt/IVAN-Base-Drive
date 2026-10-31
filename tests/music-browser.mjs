@@ -42,6 +42,7 @@ test('public Library/Music/Film routes, download-only albums, and responsive lay
   browser=await chromium.launch({channel:'msedge',headless:true});
   for(const viewport of [{width:1366,height:1000},{width:1440,height:1000},{width:1920,height:1080},{width:390,height:844}]){
    const context=await browser.newContext({viewport});
+   await context.addInitScript(()=>{Object.defineProperty(navigator,'hardwareConcurrency',{value:8});Object.defineProperty(navigator,'deviceMemory',{value:8});});
    const page=await context.newPage(),errors=[];page.on('pageerror',error=>errors.push(error.message));
    await page.goto(origin+'/site/');await page.locator('#post-grid .post-card').waitFor();
    assert.deepEqual(await page.locator('#post-grid h3').allTextContents(),['Ordinary Game']);
@@ -70,12 +71,25 @@ test('public Library/Music/Film routes, download-only albums, and responsive lay
    assert.equal(await page.locator('audio,video').count(),0);
    assert.equal(await page.locator('.album-detail button, .album-detail iframe, .album-detail [data-play-track], .album-detail [data-play-album], .album-detail [data-shuffle], .album-detail [data-repeat], .album-detail [data-next], .album-detail [data-previous]').count(),0);
    assert.ok(!(await page.locator('.album-detail').textContent()).includes('Phát'));
-   assert.equal(await page.locator('.ambient-particles i').count(),18);
+   assert.equal(await page.locator('.ambient-particles i').count(),22);
    assert.equal(await page.locator('.ambient-particles').evaluate(node=>getComputedStyle(node).pointerEvents),'none');
+   const backgroundLayers=await page.evaluate(()=>({
+    particlesZ:getComputedStyle(document.querySelector('.ambient-particles')).zIndex,
+    headerZ:getComputedStyle(document.querySelector('.header')).zIndex,
+    sparkAnimation:getComputedStyle(document.querySelector('.ambient-particles i')).animationName,
+    footerGlow:getComputedStyle(document.body,'::after').animationName,
+    footerGlowPosition:getComputedStyle(document.body,'::after').position
+   }));
+   assert.equal(backgroundLayers.particlesZ,'0');assert.equal(backgroundLayers.headerZ,'1');
+   assert.equal(backgroundLayers.footerGlowPosition,'absolute');
+   if(viewport.width>=1024||viewport.width<=600){assert.equal(backgroundLayers.sparkAnimation,'ivan-ember-rise');assert.equal(backgroundLayers.footerGlow,'ivan-footer-glow');}
+   else{assert.equal(backgroundLayers.sparkAnimation,'none');assert.equal(backgroundLayers.footerGlow,'none');}
    if(viewport.width<600)assert.equal(await page.locator('.ambient-particles i:visible').count(),6);
-   else assert.equal(await page.locator('.ambient-particles i:visible').count(),18);
+   else assert.equal(await page.locator('.ambient-particles i:visible').count(),22);
    await page.emulateMedia({reducedMotion:'reduce'});
    assert.equal(await page.evaluate(()=>document.getAnimations().some(animation=>animation.animationName==='ivan-particle-drift')),false);
+   assert.equal(await page.evaluate(()=>getComputedStyle(document.querySelector('.ambient-particles i')).animationName),'none');
+   assert.equal(await page.evaluate(()=>getComputedStyle(document.body,'::after').animationName),'none');
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true);
    assert.deepEqual(errors,[]);await context.close();
   }
@@ -85,7 +99,7 @@ test('public Library/Music/Film routes, download-only albums, and responsive lay
   });
   const weakPage=await weakContext.newPage();await weakPage.goto(origin+'/site/');await weakPage.locator('#post-grid .post-card').first().waitFor();
   assert.equal(await weakPage.locator('body').evaluate(node=>node.classList.contains('ambient-motion')),false);
-  assert.equal(await weakPage.locator('.ambient-particles i').count(),18);
+  assert.equal(await weakPage.locator('.ambient-particles i').count(),22);
   await weakContext.close();
  }finally{await browser?.close();await new Promise(resolve=>staticServer.close(resolve));await new Promise(resolve=>server.close(resolve));db.close();await rm(directory,{recursive:true,force:true});}
 });

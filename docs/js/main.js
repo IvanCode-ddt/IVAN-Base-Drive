@@ -7,6 +7,7 @@ const $=s=>document.querySelector(s);
 // Public entry point only. Nothing is hidden while JS/observers are unavailable.
 const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)');
 const ambientViewport=matchMedia('(min-width:1024px) and (hover:hover) and (pointer:fine)');
+const mobileAmbientViewport=matchMedia('(max-width:600px)');
 const weakDevice=(navigator.hardwareConcurrency&&navigator.hardwareConcurrency<=4)||(navigator.deviceMemory&&navigator.deviceMemory<=4)||navigator.connection?.saveData;
 const entrances=new Set();
 function syncGroupIndicator(){
@@ -18,15 +19,16 @@ function syncGroupIndicator(){
 }
 function syncMotion(){
  document.body.classList.toggle('ambient-motion',ambientViewport.matches&&!reducedMotion.matches&&!weakDevice);
+ document.body.classList.toggle('ambient-motion-mobile',mobileAmbientViewport.matches&&!reducedMotion.matches&&!weakDevice);
  document.body.classList.toggle('motion-paused',document.hidden);
  if(reducedMotion.matches||document.hidden)for(const animation of entrances)animation.cancel();
 }
 function enter(node,distance=8){
  if(!node?.animate||reducedMotion.matches||document.hidden||weakDevice)return;
- const animation=node.animate([{opacity:.92,transform:`translate3d(0,${distance}px,0)`},{opacity:1,transform:'translate3d(0,0,0)'}],{duration:360,easing:'cubic-bezier(.16,1,.3,1)'});
+ const animation=node.animate([{opacity:.92,transform:`translate3d(0,${distance}px,0)`},{opacity:1,transform:'translate3d(0,0,0)'}],{duration:440,easing:'cubic-bezier(.16,1,.3,1)'});
  entrances.add(animation);animation.finished.then(()=>entrances.delete(animation),()=>entrances.delete(animation));
 }
-reducedMotion.addEventListener?.('change',syncMotion);ambientViewport.addEventListener?.('change',syncMotion);
+reducedMotion.addEventListener?.('change',syncMotion);ambientViewport.addEventListener?.('change',syncMotion);mobileAmbientViewport.addEventListener?.('change',syncMotion);
 document.addEventListener('visibilitychange',syncMotion);syncMotion();
 let posts=[],albums=[],albumsLoaded=false,category='all',group='library',libraryScroll=0,routeVersion=0,highlightConfig=null;
 let disposePlayers=()=>{};
