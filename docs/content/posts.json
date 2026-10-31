@@ -2,13 +2,56 @@
   "schemaVersion": 1,
   "posts": [
     {
+      "id": "cb2c59b2-80fd-4dfa-9443-b589200e5a63",
+      "slug": "ghost-of-tsushima-director-s-cut",
+      "title": "Ghost Of Tsushima DIRECTOR’S CUT",
+      "category": "game",
+      "description": "Ghost of Tsushima DIRECTOR’S CUT (Tự sát ma đối đầu Mông Cổ: Bản mở rộng) là một siêu phẩm hành động phiêu lưu và nhập vai hành động (ARPG) thế giới mở, được phát triển bởi Sucker Punch Productions và cổng lên PC bởi Nixxes Software, do PlayStation Publishing phát hành vào ngày 16 tháng 5, 2024. Với bối cảnh lịch sử hoành tráng và lối chơi đầy chất nghệ thuật, phiên bản gốc của trò chơi đã từng nhận được vô số đề cử lớn, bao gồm cả đề cử Game of the Year tại sự kiện The Game Awards 2020",
+      "introduction": "**Thông tin cơ bản**\n• Nhà phát triển: Sucker Punch Productions / Nixxes Software\n• Đạo diễn / Thiết kế: Nate Fox / Jason Connell\n• Nền tảng hỗ trợ: PlayStation 4, PlayStation 5, Microsoft Windows (PC).\n• Bối cảnh: Hòn đảo Đối Mã (Tsushima) của Nhật Bản vào cuối thế kỷ 13, thời kỳ diễn ra cuộc xâm lược đầu tiên của đế quốc Mông Cổ.\n\n\n**Cốt truyện và Lối chơi**\n• Nhân vật chính: Bạn sẽ vào vai Jin Sakai (Kính Tỉnh Nhân), một samurai dũng cảm sống sót sau trận chiến tàn khốc tại bãi biển Komoda. Để giải cứu quê hương khỏi tay ách thống trị của bạo chúa Khotun Khan, Jin buộc phải từ bỏ danh dự samurai truyền thống để rèn luyện những kỹ thuật ám sát bí mật, trở thành bóng ma \"Ghost\" reo rắc nỗi sợ hãi cho quân thù.\n• Cơ chế chiến đấu: Trò chơi mang đến hệ thống chiến đấu bằng kiếm Katana đỉnh cao với 4 thế đánh (Stances) khắc chế riêng biệt cho từng loại kẻ địch (Thạch Thế, Thủy Thế, Phong Thế, Nguyệt Thế), kết hợp hoàn hảo giữa phản đòn (Parry), né tránh và dứt điểm nhanh gọn.\n• Vũ khí của Bóng Ma: Bên cạnh thanh kiếm, Jin còn được trang bị loạt khí cụ chuẩn nhẫn giả như cung tên, bom khói, phi tiêu kunai, bom nổ và dây móc kéo giúp linh hoạt chuyển đổi giữa lối chơi càn quét trực diện hoặc ám sát lén lút.\n• Bản mở rộng Đảo Iki: Là phiên bản Director’s Cut, trò chơi tích hợp sẵn phần cốt truyện mở rộng tại Đảo Iki, mang đến vùng đất mới, kẻ thù mới, cùng những câu chuyện đào sâu vào quá khứ đầy tổn thương của gia tộc vị samurai.\n\n**Điểm nổi bật**\n• Nghệ thuật định hướng bằng gió: Game loại bỏ hoàn toàn các thanh la bàn hay bản đồ nhỏ (mini-map) gây loãng màn hình. Thay vào đó, người chơi sẽ định vị đường đi thông qua hướng thổi của những cơn gió (Guiding Wind) và sự dẫn lối của các loài động vật như chim vàng anh hay cáo.\n• Chế độ Điện ảnh Kurosawa: Người chơi có thể kích hoạt bộ lọc hình ảnh đen trắng, nhiễu hạt cùng âm thanh mô phỏng phim điện ảnh samurai cổ điển của đạo diễn huyền thoại Akira Kurosawa, mang lại trải nghiệm thị giác vô cùng độc đáo.",
+      "instructions": "## Installation\n**(Game tải ở ví dụ là Hollow_Knight_Silksong)**\n1.Tải và giải nén file [Tên_game_đã_tải].rar\n2.Sau khi giải nén file sẽ có cấu trúc như sau:\n![Ảnh minh họa](uploads/9561c974-40ff-424a-a1e6-4cbf9ffaefda.webp)\n3.Tìm và chạy file [Tên_game_đã_tải].exe\n![Ảnh minh họa](uploads/06c5c738-c0fb-40a8-a1b2-deddafe89e9e.webp)\n(game tải ở ví dụ là Hollow_Knight_Silksong)",
+      "minimum_requirements": "\n• Hệ điều hành: Windows 10 (64-bit)\n• Bộ xử lý (CPU): Intel Core i3-7100 hoặc AMD Ryzen 3 1200\n• Bộ nhớ (RAM): 8 GB RAM\n• Card đồ họa (GPU): NVIDIA GeForce GTX 960 (4GB) hoặc AMD Radeon RX 5500 XT\n• Ổ cứng trống: 75 GB (Hỗ trợ HDD nhưng khuyến khích dùng SSD)",
+      "recommended_requirements": "\n• Hệ điều hành: Windows 10 (64-bit)\n• Bộ xử lý (CPU): Intel Core i5-8600 hoặc AMD Ryzen 5 3600\n• Bộ nhớ (RAM): 16 GB RAM\n• Card đồ họa (GPU): NVIDIA GeForce RTX 2060 hoặc AMD Radeon RX 5600 XT\n• Ổ cứng trống: 75 GB (Bắt buộc phải dùng ổ cứng SSD)",
+      "install_size": "46 Gb + 75GB = 121 GB",
+      "operating_systems": [
+        "Windows"
+      ],
+      "cover_url": "uploads/42b683e8-ad73-4755-a7b4-1ad4fc0320b1.webp",
+      "images": [
+        "uploads/2af6c4cb-72bd-4e80-a2b0-310d1bd27574.webp",
+        "uploads/2a5ce335-7dbe-4c06-8bc3-43df4abf4874.webp",
+        "uploads/8f002e2d-a416-4138-a00b-d03278cad0b4.webp"
+      ],
+      "attachment_url": "",
+      "media_url": "",
+      "status": "published",
+      "created_at": "2026-10-31T09:27:43.703Z",
+      "updated_at": "2026-10-31T09:29:37.641Z",
+      "is_pinned": true,
+      "pin_order": 3,
+      "is_spotlight": false,
+      "metadata": {},
+      "media_sources": [],
+      "external_links": [
+        {
+          "name": "External link: Ghost Of Tsushima DIRECTOR’S CUT",
+          "url": "https://ts.bzzhr.to/d/sgsfahtrrai2?v=1oxY6BSDmzxunT9Vm73W_nPMZu6494pOTNK3Q_Ld-iaLMa93AtvSAqFp-AEydNCw-orEgwUm37ip5dNMP9WEsXO37Yn1tr8PU57SWRC0404JF1kRzHPqOtcvOaTcIek2O1Xgk9nuZxIkEfQwISC87KNAIFKLagJHcI57rogTDsnTkl8zZgxue7XB-L1uOXnQ-eZ9oxEFsV0t",
+          "kind": "direct",
+          "provider": "Steamrip.com",
+          "size": "46 GB",
+          "priority": 0
+        }
+      ],
+      "drive_files": [],
+      "content_type": "post"
+    },
+    {
       "id": "a58c8472-6261-415a-bcab-33782d28b0f9",
       "slug": "black-myth-wukong-hac-than-thoai-ngo-khong-khi-den",
       "title": "Black Myth: Wukong / Hắc Thần Thoại Ngộ không / Khỉ Đen",
       "category": "game",
       "description": "Black Myth: Wukong (tên tiếng Việt: Hắc Thần Thoại: Ngộ Không) là tựa game hành động nhập vai (ARPG) đình đám do hãng Game Science của Trung Quốc.",
       "introduction": "## Black Myth: Wukong (Hắc Thần Thoại: Ngộ Không)\n Là một tựa game hành động nhập vai (ARPG) đình đám toàn cầu được phát triển và phát hành bởi studio Game Science vào ngày 20 tháng 8, 2024. Được nhào nặn bởi đội ngũ phát triển tài năng tại Trung Quốc, trò chơi đã tạo nên cơn sốt kỷ lục với hàng triệu bản bán ra và xuất sắc nhận được nhiều đề cử cũng như giải thưởng danh giá trong năm 2024.\n**Thông tin cơ bản**\n• Nhà phát triển: Game Science\n• Đạo diễn / Thiết kế: Phùng Ký (Feng Ji)\n• Nền tảng hỗ trợ: PlayStation 5, Microsoft Windows (PC), Xbox Series X/S.\n• Bối cảnh: Thế giới thần thoại phương Đông giả tưởng, lấy cảm hứng sâu sắc từ tác phẩm kinh điển Tây Du Ký.\n**Cốt truyện và Lối chơi**\n• Nhân vật chính: Bạn sẽ vào vai Thiên Mệnh Nhân (The Destined One), một chú khỉ dũng cảm mang sứ mệnh lên đường tìm kiếm và thu thập 6 mảnh \"Lục căn\" bị phong ấn để hồi sinh Tề Thiên Đại Thánh.\n• Cơ chế biến thân: Người chơi có khả năng hấp thụ linh hồn và biến hình thành chính các thủ lĩnh hoặc yêu quái đã đánh bại, sở hữu toàn bộ bộ kỹ năng và thanh máu độc lập của chúng để lật ngược thế cờ.\n• Gậy Như Ý linh hoạt: Vũ khí chính của nhân vật là chiếc gậy thần có khả năng co giãn, được kết hợp linh hoạt qua ba thế đánh độc đáo bao gồm Trụ Bản (Pillar Stance), Lập Bản (Smash Stance) và Thao Bản (Thrust Stance).\n• Hệ thống Thần thông (Spells): Lối chơi của game được nâng tầm nhờ các phép thuật biến hóa như Định Thân Thuật (Immobilize) đóng băng kẻ địch, Phân Thân Thuật (A Pluck of Many) gọi ra đàn khỉ con, hay các phép tản hình nấp bóng để tạo lợi thế giao tranh.\n**Điểm nổi bật**\n• Đồ họa Unreal Engine 5 đỉnh cao: Tái hiện chân thực và hùng vĩ các danh lam thắng cảnh, đền đài cổ kính của Trung Hoa mang lại trải nghiệm điện ảnh mãn nhãn.\n• Dàn Boss đồ sộ và thử thách: Trò chơi sở hữu hơn 80 con trùm khác nhau với tạo hình kỳ quái, đòi hỏi người chơi phải kết hợp nhuần nhuyễn giữa né đòn, phản công và khắc chế thuộc tính để chiến thắng.",
-      "instructions": "## Installation\n1.Tải và giải nén file **Black-Myth-Wukong-SteamRIP.com.rar**\n2.Sau khi giải nén file sẽ có cấu trúc như sau:\n![Ảnh minh họa](uploads/c7307983-dcd7-4932-a749-ccdc8a0c8b96.webp)\n\n3.Tìm và chạy file [Tên_game_đã_tải].exe\n![Ảnh minh họa](uploads/9b62ab4d-4b59-49eb-90bc-42fc5df48d56.webp)\n\n**(game tải ở ví dụ là Hollow_Knight_Silksong)**\n\n\n## Việt Hóa:\n**-Sử dụng bản việt hóa của CanhCutTeam: **\n1.Tải Launcher của CCT để SD: [CANH CUT TEAM](https://canhcutteam.com/)\n2.Tìm và trỏ dường dẫn thư mục chưa file [Tên_Game].exe trong CCT Launcher và cài đặt\n\n**-Sử dụng bản việt hóa của bên khác:**\nTự tìm hiểu",
+      "instructions": "## Installation\n**(Game tải ở ví dụ là Hollow_Knight_Silksong)**\n1.Tải và giải nén file [Tên_game_đã_tải].rar\n2.Sau khi giải nén file sẽ có cấu trúc như sau:\n![Ảnh minh họa](uploads/9561c974-40ff-424a-a1e6-4cbf9ffaefda.webp)\n3.Tìm và chạy file [Tên_game_đã_tải].exe\n![Ảnh minh họa](uploads/06c5c738-c0fb-40a8-a1b2-deddafe89e9e.webp)\n(game tải ở ví dụ là Hollow_Knight_Silksong)",
       "minimum_requirements": "• Hệ điều hành: Windows 10/11 (64-bit)\n• Bộ xử lý (CPU): Intel Core i5-8400 hoặc AMD Ryzen 5 1600\n• Bộ nhớ (RAM): 16 GB RAM\n• Card đồ họa (GPU): NVIDIA GTX 1060 6GB hoặc AMD RX 580 8GB\n• DirectX: Phiên bản 11\n• Ổ cứng trống: 130 GB (Hỗ trợ HDD nhưng nên dùng SSD)",
       "recommended_requirements": "• Hệ điều hành: Windows 10/11 (64-bit)\n• Bộ xử lý (CPU): Intel Core i7-9700 hoặc AMD Ryzen 5 5500\n• Bộ nhớ (RAM): 16 GB RAM\n• Card đồ họa (GPU): NVIDIA RTX 2060 / AMD RX 5700 XT / Intel Arc A750\n• DirectX: Phiên bản 12\n• Ổ cứng trống: 130 GB (Bắt buộc phải dùng ổ cứng SSD)",
       "install_size": "~260 Gib",
@@ -25,7 +68,7 @@
       "media_url": "",
       "status": "published",
       "created_at": "2026-10-31T08:43:29.487Z",
-      "updated_at": "2026-10-31T09:17:03.314Z",
+      "updated_at": "2026-10-31T09:29:33.660Z",
       "is_pinned": true,
       "pin_order": 2,
       "is_spotlight": false,
