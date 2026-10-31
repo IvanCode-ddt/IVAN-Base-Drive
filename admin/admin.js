@@ -1,8 +1,8 @@
-import { initEditor } from './editor.js?v=10';
+import { initEditor } from './editor.js?v=21';
 import { initDrivePicker } from './drive-picker.js?v=9';
-import { detailHTML } from '/js/content.js?v=17';
+import { detailHTML } from '/js/content.js?v=21';
 import {createPostActions} from './actions.js?v=10';
-import {CONTENT_FIELDS,MEDIA_TYPES} from '/js/media.js?v=17';
+import {CONTENT_FIELDS} from '/js/media.js?v=17';
 import {createNotifications} from './notifications.js';
 const $=s=>document.querySelector(s),form=$('#post-form');
 const notifications=createNotifications();
@@ -10,24 +10,7 @@ let driveUI;
 let csrf='',editingId=null,currentStatus='draft',dirty=false,pinPosts=[];
 let loadedPost=null;
 let metadataDraft={};
-let mediaDraft=[];
 const basicMetadataKeys=new Set(['size_label','content_updated_at','platform']);
-function renderMediaSources(){
- const container=$('#media-source-rows');container.replaceChildren();
- mediaDraft.forEach((source,index)=>{
-  const fieldset=document.createElement('fieldset'),legend=document.createElement('legend');legend.textContent=`Nguồn ${index+1}`;fieldset.append(legend);
-  const field=(title,element)=>{const label=document.createElement('label');label.textContent=title;label.append(element);fieldset.append(label);return element;};
-  const kind=field('Loại nguồn',document.createElement('select'));for(const[value,label]of [['direct','HTML5 trực tiếp'],['drive_preview','Google Drive preview']]){const option=document.createElement('option');option.value=value;option.textContent=label;kind.append(option);}kind.value=source.kind;
-  const name=field('Tên hiển thị',document.createElement('input'));name.value=source.label;name.maxLength=120;
-  const url=field('URL HTTPS',document.createElement('input'));url.type='url';url.maxLength=2048;url.value=source.url;
-  const mime=field('MIME type (chỉ HTML5)',document.createElement('select'));for(const value of MEDIA_TYPES){const option=document.createElement('option');option.value=value;option.textContent=value;mime.append(option);}mime.value=source.mime_type||'';mime.disabled=source.kind==='drive_preview';
-  const consent=field('Tôi có quyền chia sẻ/phân phối và cho phép nhúng công khai nguồn này',document.createElement('input'));consent.type='checkbox';consent.checked=!!source.sharing_confirmed;
-  consent.closest('label').classList.add('content-option');
-  kind.addEventListener('change',()=>{source.kind=kind.value;mime.disabled=kind.value==='drive_preview';});name.addEventListener('input',()=>source.label=name.value);url.addEventListener('input',()=>source.url=url.value);mime.addEventListener('change',()=>source.mime_type=mime.value);consent.addEventListener('change',()=>source.sharing_confirmed=consent.checked);
-  const remove=document.createElement('button');remove.type='button';remove.className='secondary-button';remove.textContent='Gỡ nguồn';remove.addEventListener('click',()=>{mediaDraft.splice(index,1);renderMediaSources();dirty=true;});fieldset.append(remove);container.append(fieldset);
- });
-}
-$('#add-media-source').addEventListener('click',()=>{if(mediaDraft.length>=10)return message('Tối đa 10 nguồn phát.',true);mediaDraft.push({kind:'direct',label:'',url:'',mime_type:form.elements.category.value==='music'?'audio/mpeg':'video/mp4',sharing_confirmed:false});renderMediaSources();dirty=true;});
 function captureMetadata(){for(const input of form.querySelectorAll('[data-metadata-key]'))metadataDraft[input.dataset.metadataKey]=input.value;}
 function renderMetadata(){
  const container=$('#metadata-fields');container.replaceChildren();
@@ -73,7 +56,6 @@ function fill(post=null){
  renderPinOrders(post);
  $('#pin-order-wrap').hidden=!form.elements.is_pinned.checked;
  metadataDraft={...post?.metadata};renderMetadata();
- mediaDraft=(post?.media_sources||[]).map(source=>({...source}));renderMediaSources();
  $('#editor-title').textContent=post?'Chỉnh sửa bài viết':'Bài viết mới';$('#saved-info').textContent=post?`ID: ${post.id} · ${post.status} · Cập nhật: ${new Date(post.updated_at).toLocaleString('vi-VN')}`:'';
  $('#preview').hidden=true;dirty=false;driveUI.fill(post);editorUI.fill(post);
  const badge=$('#post-status');badge.textContent=post?(post.status==='published'?'Published · Đã xuất bản':'Draft · Bản nháp'):'Bài mới · Draft';badge.dataset.status=post?.status||'draft';
@@ -99,7 +81,6 @@ form.addEventListener('submit',async event=>{
  body.install_size=form.elements.install_size.value;
  body.operating_systems=[...form.querySelectorAll('[name="operating_systems"]:checked')].map(checkbox=>checkbox.value);
  captureMetadata();body.metadata={...metadataDraft};
- body.media_sources=mediaDraft.map(source=>({...source}));
  body.external_links=editorUI.externalLinks();
  body.drive_file_ids=driveUI.ids();
  body.cms_contract=2;

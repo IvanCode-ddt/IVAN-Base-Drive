@@ -1,6 +1,6 @@
-import { CATEGORIES } from './data.js?v=14';
+import { CATEGORIES } from './data.js?v=21';
 import { imageURL,CONTENT_FIELDS,publicMetadata,formatBytes,mediaChoices,spotlightImageSet,externalDownloadURL } from './media.js?v=18';
-import { renderMarkdown } from './markdown.js?v=15';
+import { renderMarkdown } from './markdown.js?v=21';
 export const categoryName=id=>CATEGORIES.find(c=>c.id===id)?.name||'Khác';
 export function escapeHTML(value=''){return String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 export function safeURL(value){try{const u=new URL(value);return u.protocol==='https:'&&!u.username&&!u.password?u.href:'';}catch{return '';}}

@@ -1,10 +1,30 @@
+import {initImagePaste} from './clipboard-images.js?v=1';
+import {renderMarkdown} from '/js/markdown.js?v=21';
 import { imageURL } from '/js/media.js';
 export function slugify(value){return value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[đĐ]/g,'d').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,180).replace(/-$/,'');}
 export function insertMarkdown(field,kind,url=''){
- const selected=field.value.slice(field.selectionStart,field.selectionEnd),before=field.value.slice(0,field.selectionStart),after=field.value.slice(field.selectionEnd);
- const lineStart=before&&!before.endsWith('\n')?'\n':'';
- const text={heading:`${lineStart}## ${selected||'Tiêu đề'}`,bold:`**${selected||'Nội dung in đậm'}**`,list:`${lineStart}${(selected||'Mục thứ nhất\nMục thứ hai').split('\n').map(line=>'- '+line).join('\n')}`,link:`[${selected||'Tên liên kết'}](${url})`,image:`![${selected||'Ảnh minh họa'}](${url})`}[kind];
- field.setRangeText(text,field.selectionStart,field.selectionEnd,'end');field.dispatchEvent(new Event('input',{bubbles:true}));field.focus();
+ let start=field.selectionStart,end=field.selectionEnd,selected=field.value.slice(start,end),text,caret;
+ const marker=kind==='bold'?'**':kind==='italic'?'*':'';
+ if(marker){
+  if(selected.startsWith(marker)&&selected.endsWith(marker)&&selected.length>=marker.length*2){text=selected.slice(marker.length,-marker.length);}
+  else if(field.value.slice(start-marker.length,start)===marker&&field.value.slice(end,end+marker.length)===marker){start-=marker.length;end+=marker.length;text=selected;}
+  else{text=marker+selected+marker;caret=marker.length;}
+ }else if(kind==='link'){
+  const matches=[...field.value.matchAll(/\[([^\]\n]*)\]\(([^\s)]+)\)/g)];
+  const match=matches.find(m=>start>=m.index&&end<=m.index+m[0].length);
+  if(match){start=match.index;end=start+match[0].length;selected=match[1];}
+  text='['+(selected||'Tên liên kết')+']('+url+')';
+ }else{
+  const lineStart=start&&!field.value.slice(0,start).endsWith('\n')?'\n':'';
+  text={heading:lineStart+'## '+(selected||'Tiêu đề'),list:lineStart+(selected||'Mục thứ nhất\nMục thứ hai').split('\n').map(line=>'- '+line).join('\n'),image:'!['+(selected||'Ảnh minh họa')+']('+url+')'}[kind];
+ }
+ if(text===undefined)return;
+ const scroll=field.scrollTop;field.focus({preventScroll:true});field.setSelectionRange(start,end);
+ // insertText keeps the native Chromium undo/redo stack, unlike assigning value.
+ if(!document.execCommand('insertText',false,text)){field.setRangeText(text,start,end,'end');field.dispatchEvent(new Event('input',{bubbles:true}));}
+ if(caret!==undefined)field.setSelectionRange(start+caret,start+text.length-caret);
+ else field.setSelectionRange(start+text.length,start+text.length);
+ field.scrollTop=scroll;
 }
 export function initEditor({form,getCSRF,onError,onDirty}){
  let slugManual=false,existing=false,inlineTarget;
@@ -64,21 +84,54 @@ export function initEditor({form,getCSRF,onError,onDirty}){
   const response=await fetch('/api/admin/images',{method:'POST',headers:{'Content-Type':file.type||'application/octet-stream','X-CSRF-Token':getCSRF()},body:file});
   const data=await response.json();if(!response.ok)throw new Error(data.error||'Không tải ảnh lên được.');return data.path;
  }
- for(const[id,target]of[['cover-upload','cover'],['gallery-upload','gallery'],['inline-upload','inline']])document.getElementById(id).addEventListener('change',async event=>{
-  const input=event.target;input.disabled=true;
-  try {
-   const files=[...input.files];if(target==='gallery'&&galleryValues().length+files.length>12)throw new Error('Tối đa 12 ảnh minh họa.');
-   for(const file of files){const url=await upload(file);if(target==='cover')cover.value=url;else if(target==='gallery')gallery.value=[...galleryValues(),url].join('\n');else insertMarkdown(inlineTarget,'image',url);onDirty();previews();}
-  }catch(error){onError(error.message);}finally{input.disabled=false;input.value='';}
+ for(const[id,target]of[['cover-upload','cover'],['gallery-upload','gallery'],['inline-upload','inline']]){
+  const input=document.getElementById(id);
+  async function uploadFiles(files,pasted=false){
+   if(input.disabled||!files.length)return;
+   if(pasted&&target==='cover'&&cover.value&&!confirm('Thay ảnh bìa đang chọn bằng ảnh vừa dán?'))return;
+   input.disabled=true;
+   try{
+    if(target==='gallery'&&galleryValues().length+files.length>12)throw new Error('Tối đa 12 ảnh minh họa.');
+    if(files.some(file=>!['image/png','image/jpeg','image/webp'].includes(file.type)||file.size>5*1024*1024))throw new Error('Chỉ nhận JPEG, PNG, WebP, tối đa 5 MB/ảnh.');
+    const urls=[];for(const file of files)urls.push(await upload(file));
+    if(target==='cover')cover.value=urls[0]||cover.value;
+    else if(target==='gallery')gallery.value=[...galleryValues(),...urls].join('\n');
+    else for(const url of urls)insertMarkdown(inlineTarget,'image',url);
+    onDirty();previews();
+   }catch(error){onError(error.message);}finally{input.disabled=false;input.value='';}
+  }
+  input.addEventListener('change',()=>uploadFiles([...input.files]));
+  if(target!=='inline')initImagePaste(input,files=>uploadFiles(files,true));
+ }
+ function format(field,kind){
+  if(kind==='preview'){
+   let preview=document.getElementById(field.id+'-markdown-preview');
+   if(!preview){preview=document.createElement('div');preview.id=field.id+'-markdown-preview';preview.className='markdown-content editor-markdown-preview';preview.setAttribute('role','region');preview.setAttribute('aria-label','Xem trước Markdown');field.after(preview);}
+   preview.innerHTML=renderMarkdown(field.value);preview.hidden=false;return;
+  }
+  if(kind==='image'){inlineTarget=field;document.getElementById('inline-upload').click();return;}
+  let url='';if(kind==='link'){
+   const match=[...field.value.matchAll(/\[([^\]\n]*)\]\(([^\s)]+)\)/g)].find(m=>field.selectionStart>=m.index&&field.selectionEnd<=m.index+m[0].length);
+   url=prompt('Đường dẫn HTTPS:',match?.[2]||'https://');if(!url)return;
+   try{const parsed=new URL(url);if(parsed.protocol!=='https:'||parsed.username||parsed.password)throw new Error();}catch{return onError('Liên kết phải dùng HTTPS.');}
+  }
+  insertMarkdown(field,kind,url);
+ }
+ document.querySelectorAll('.markdown-toolbar').forEach(toolbar=>{
+  const field=document.getElementById(toolbar.dataset.editor);
+  for(const[kind,label]of[['italic','I'],['preview','Xem trước']])if(!toolbar.querySelector('[data-md="'+kind+'"]')){const button=document.createElement('button');button.type='button';button.dataset.md=kind;button.textContent=label;toolbar.append(button);}
+  for(const[kind,label]of[['bold','In đậm (Ctrl+B)'],['italic','In nghiêng (Ctrl+I)'],['link','Liên kết (Ctrl+K)']]){const button=toolbar.querySelector('[data-md="'+kind+'"]');button.title=label;button.setAttribute('aria-label',label);}
+  toolbar.addEventListener('pointerdown',event=>{if(event.target.closest('button'))event.preventDefault();});
+  toolbar.addEventListener('click',event=>{const button=event.target.closest('[data-md]');if(button)format(field,button.dataset.md);});
+  field.addEventListener('keydown',event=>{
+   if(!(event.ctrlKey||event.metaKey)||event.altKey||event.shiftKey||event.isComposing)return;
+   const kind={b:'bold',i:'italic',k:'link'}[event.key.toLowerCase()];if(!kind)return;
+   event.preventDefault();format(field,kind);
+  });
+  field.addEventListener('input',()=>{const preview=document.getElementById(field.id+'-markdown-preview');if(preview&&!preview.hidden)preview.innerHTML=renderMarkdown(field.value);});
  });
- document.querySelectorAll('.markdown-toolbar').forEach(toolbar=>toolbar.addEventListener('click',event=>{
-  const button=event.target.closest('[data-md]');if(!button)return;const field=document.getElementById(toolbar.dataset.editor);
-  if(button.dataset.md==='image'){inlineTarget=field;document.getElementById('inline-upload').click();return;}
-  let url='';if(button.dataset.md==='link'){url=prompt('Đường dẫn HTTPS:','https://');if(!url)return;try{if(new URL(url).protocol!=='https:')throw new Error();}catch{return onError('Liên kết phải dùng HTTPS.');}}
-  insertMarkdown(field,button.dataset.md,url);
- }));
  cover.addEventListener('input',previews);gallery.addEventListener('input',previews);
- return{fill(post){existing=!!post;slugManual=!!post;fillExternalLinks(post?.external_links||[]);previews();},externalLinks(){return[...externalRows.querySelectorAll('.external-link-row')].map(row=>{
+ return{fill(post){existing=!!post;slugManual=!!post;fillExternalLinks(post?.external_links||[]);form.querySelectorAll('.editor-markdown-preview').forEach(node=>node.remove());previews();},externalLinks(){return[...externalRows.querySelectorAll('.external-link-row')].map(row=>{
   const value=key=>row.querySelector(`[data-external-field="${key}"]`).value;
   return{name:value('Tên hiển thị'),url:value('URL HTTPS'),kind:value('Loại liên kết'),provider:value('Nguồn cung cấp (tùy chọn)'),size:value('Dung lượng (tùy chọn)')};
  });}};

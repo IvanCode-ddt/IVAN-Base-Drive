@@ -51,7 +51,7 @@ test('CMS desktop and mobile: slug, Markdown, upload, draft/edit/publish and Dri
    await externalRow.locator('[data-external-action="up"]').click();
    await page.locator('#introduction').fill('## Giới thiệu\n\n**Chữ đậm**\n\n- Một\n- Hai\n\n<script>window.CMS_XSS=true</script>');
    await page.locator('[data-editor=introduction] [data-md=bold]').click();
-   assert.ok((await page.locator('#introduction').inputValue()).includes('**Nội dung in đậm**'));
+   assert.ok((await page.locator('#introduction').inputValue()).endsWith('****'));
    const chooserPromise=page.waitForEvent('filechooser');await page.locator('[data-editor=introduction] [data-md=image]').click();
    await(await chooserPromise).setFiles({name:'inline.png',mimeType:'image/png',buffer:png});
    await page.waitForFunction(()=>document.querySelector('#introduction').value.includes('](uploads/'));
@@ -73,7 +73,7 @@ test('CMS desktop and mobile: slug, Markdown, upload, draft/edit/publish and Dri
    await page.locator('#picker-confirm').click();
    await page.locator('[data-share=test_file]').check();
    const selected=name==='mobile'?2:1;assert.equal(await page.locator('.selected-file').count(),selected);assert.equal(db.list().length,before);
-   await page.getByRole('button',{name:'Xem trước',exact:true}).click();await page.waitForSelector('#preview:not([hidden])');assert.ok(await page.locator('#preview strong').count());assert.equal(await page.locator('#preview .requirements-card').count(),2);assert.ok((await page.locator('#preview .requirements-card').first().textContent()).includes('GPU <script>alert(1)</script>'));const requirementsLayout=await page.locator('#preview .requirements-grid').evaluate(element=>({columns:getComputedStyle(element).gridTemplateColumns.split(' ').length,whiteSpace:getComputedStyle(element.querySelector('p')).whiteSpace}));assert.equal(requirementsLayout.columns,name==='mobile'?1:2);assert.equal(requirementsLayout.whiteSpace,'pre-wrap');assert.equal(await page.evaluate(()=>window.CMS_XSS),undefined);
+   await page.locator('button[type=submit][value=preview]').click();await page.waitForSelector('#preview:not([hidden])');assert.ok(await page.locator('#preview strong').count());assert.equal(await page.locator('#preview .requirements-card').count(),2);assert.ok((await page.locator('#preview .requirements-card').first().textContent()).includes('GPU <script>alert(1)</script>'));const requirementsLayout=await page.locator('#preview .requirements-grid').evaluate(element=>({columns:getComputedStyle(element).gridTemplateColumns.split(' ').length,whiteSpace:getComputedStyle(element.querySelector('p')).whiteSpace}));assert.equal(requirementsLayout.columns,name==='mobile'?1:2);assert.equal(requirementsLayout.whiteSpace,'pre-wrap');assert.equal(await page.evaluate(()=>window.CMS_XSS),undefined);
    assert.equal(await page.locator('#preview .download-file').count(),3);
    assert.equal(await page.getByRole('link',{name:'Mở trang tải · Download page'}).getAttribute('href'),'https://example.test/download');
    assert.equal(await page.getByRole('link',{name:'Mở trang tải · Download page'}).getAttribute('rel'),'noopener noreferrer');

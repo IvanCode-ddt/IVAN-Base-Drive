@@ -9,7 +9,8 @@ import {DRIVE_SCOPE,FOLDER} from '../server/drive.js';
 test('Admin aliases require Google login, complete cross-site OAuth and reconnect Drive without LOCAL_ONLY',async()=>{
  const db=openDatabase(':memory:');let pending;
  const config={localAdminMode:true,baseUrl:'http://localhost',adminEmail:'admin@example.com',clientId:'test',clientSecret:'test-secret',sessionSecret:'s'.repeat(48),driveRootId:'test-root',secure:false};
- const oauth={generateAuthUrl(params){pending=params;return 'https://accounts.google.com/ivan-test';},async getToken(params){assert.equal(params.redirect_uri,config.redirectUri);assert.ok(params.codeVerifier);return{tokens:{id_token:'test-id',access_token:'server-only',scope:DRIVE_SCOPE,expiry_date:Date.now()+3600000}};},async verifyIdToken(){return{getPayload:()=>({sub:'test',email:config.adminEmail,email_verified:true,nonce:pending.nonce})};}};
+ // Keep the cross-site provider fully mocked; never contact live Google here.
+ const oauth={generateAuthUrl(params){pending=params;return 'https://oauth.example.test/ivan-test';},async getToken(params){assert.equal(params.redirect_uri,config.redirectUri);assert.ok(params.codeVerifier);return{tokens:{id_token:'test-id',access_token:'server-only',scope:DRIVE_SCOPE,expiry_date:Date.now()+3600000}};},async verifyIdToken(){return{getPayload:()=>({sub:'test',email:config.adminEmail,email_verified:true,nonce:pending.nonce})};}};
  const driveRequest=async(tokens,resource)=>{
   assert.equal(tokens.access_token,'server-only');
   if(resource==='files/test-root')return{id:'test-root',name:'Test Drive',mimeType:FOLDER};
@@ -27,7 +28,13 @@ test('Admin aliases require Google login, complete cross-site OAuth and reconnec
   browser=await chromium.launch({channel:'msedge',headless:true});
   for(const host of ['localhost','127.0.0.1']){
    const context=await browser.newContext(),page=await context.newPage();page.setDefaultTimeout(10000);
-   await context.route('https://accounts.google.com/**',route=>route.fulfill({contentType:'text/html',body:`<a id="return" href="${config.redirectUri}?state=${pending.state}&code=test">Continue</a>`}));
+   // Playwright does not re-route an HTTP redirect chain. Turn only the mock
+   // handoff into a separate navigation, retaining the backend's real 302/state.
+   await context.route('**/auth/google',async route=>{
+    const response=await route.fetch({maxRedirects:0});assert.equal(response.status(),302);
+    await route.fulfill({status:200,contentType:'text/html',body:`<script>location.href=${JSON.stringify(response.headers().location)}</script>`});
+   });
+   await context.route('https://oauth.example.test/**',route=>route.fulfill({contentType:'text/html',body:`<a id="return" href="${config.redirectUri}?state=${pending.state}&code=test">Continue</a>`}));
    await page.goto(`http://${host}:${port}/admin`);await page.locator('a[href="/auth/google"]').waitFor();
    assert.equal(new URL(page.url()).hostname,'localhost');
    assert.equal(new URL(page.url()).pathname,'/login');

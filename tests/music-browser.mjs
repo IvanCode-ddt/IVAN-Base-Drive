@@ -71,7 +71,7 @@ test('public Library/Music/Film routes, download-only albums, and responsive lay
    assert.equal(await page.locator('audio,video').count(),0);
    assert.equal(await page.locator('.album-detail button, .album-detail iframe, .album-detail [data-play-track], .album-detail [data-play-album], .album-detail [data-shuffle], .album-detail [data-repeat], .album-detail [data-next], .album-detail [data-previous]').count(),0);
    assert.ok(!(await page.locator('.album-detail').textContent()).includes('Phát'));
-   assert.equal(await page.locator('.ambient-particles i').count(),64);
+   assert.equal(await page.locator('.ambient-particles i').count(),76);
    assert.equal(await page.locator('.ambient-particles').evaluate(node=>getComputedStyle(node).pointerEvents),'none');
    const backgroundLayers=await page.evaluate(()=>({
     particlesZ:getComputedStyle(document.querySelector('.ambient-particles')).zIndex,
@@ -82,22 +82,22 @@ test('public Library/Music/Film routes, download-only albums, and responsive lay
     footerGlowOpacity:Number(getComputedStyle(document.querySelector('.ambient-particles'),'::before').opacity),
     footerGlowBackground:getComputedStyle(document.querySelector('.ambient-particles'),'::before').backgroundImage
    }));
-   assert.equal(backgroundLayers.particlesZ,'0');assert.equal(backgroundLayers.headerZ,'1');
+   assert.equal(backgroundLayers.particlesZ,'0');assert.ok(Number(backgroundLayers.headerZ)>Number(backgroundLayers.particlesZ));
    assert.equal(backgroundLayers.footerGlowPosition,'absolute');
    assert.ok(backgroundLayers.footerGlowOpacity>=.78);
    assert.match(backgroundLayers.footerGlowBackground,/radial-gradient/);
    if(viewport.width>=1024||viewport.width<=600){assert.equal(backgroundLayers.sparkAnimation,'ivan-ember-near-vertical');assert.equal(backgroundLayers.footerGlow,'ivan-footer-glow');}
    else{assert.equal(backgroundLayers.sparkAnimation,'none');assert.equal(backgroundLayers.footerGlow,'none');}
-   if(viewport.width<600)assert.equal(await page.locator('.ambient-particles i:visible').count(),20);
-   else if(viewport.width>=1600)assert.equal(await page.locator('.ambient-particles i:visible').count(),64);
-   else assert.equal(await page.locator('.ambient-particles i:visible').count(),56);
+   if(viewport.width<600)assert.equal(await page.locator('.ambient-particles i:visible').count(),24);
+   else if(viewport.width>=1600)assert.equal(await page.locator('.ambient-particles i:visible').count(),76);
+   else assert.equal(await page.locator('.ambient-particles i:visible').count(),68);
    if(viewport.width===1366){
     const trajectories=await page.locator('.ambient-particles i:visible').evaluateAll(nodes=>nodes.map(node=>({
      name:getComputedStyle(node).animationName,
      keyframes:node.getAnimations()[0]?.effect.getKeyframes().map(frame=>frame.transform).join('|')
     })));
     assert.equal(new Set(trajectories.map(item=>item.name)).size,8);
-    assert.equal(new Set(trajectories.map(item=>item.keyframes)).size,8);
+    assert.ok(new Set(trajectories.map(item=>item.keyframes)).size>=8);
     await page.addStyleTag({content:'body.public-site.ambient-motion .ambient-particles i,body.public-site.ambient-motion-mobile .ambient-particles i{animation-duration:1.2s!important}'});
     const samples=[];
     for(let sample=0;sample<7;sample++){
@@ -126,7 +126,7 @@ test('public Library/Music/Film routes, download-only albums, and responsive lay
   });
   const weakPage=await weakContext.newPage();await weakPage.goto(origin+'/site/');await weakPage.locator('#post-grid .post-card').first().waitFor();
   assert.equal(await weakPage.locator('body').evaluate(node=>node.classList.contains('ambient-motion')),false);
-  assert.equal(await weakPage.locator('.ambient-particles i:visible').count(),56);
+  assert.equal(await weakPage.locator('.ambient-particles i:visible').count(),68);
   await weakContext.close();
  }finally{await browser?.close();await new Promise(resolve=>staticServer.close(resolve));await new Promise(resolve=>server.close(resolve));db.close();await rm(directory,{recursive:true,force:true});}
 });

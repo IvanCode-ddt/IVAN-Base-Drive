@@ -17,6 +17,9 @@ test('Markdown supports requested formatting, escapes raw HTML and rejects unsaf
  const html=renderMarkdown('# Heading\n\nA **bold** paragraph\n\n- One\n- Two\n\n1. First\n2. Second\n\n[Link](https://example.com)\n\n![Photo](https://example.com/a.png)\n\n<script>alert(1)</script>\n\n[x](javascript:alert) ![bad](data:text/html,bad)');
  for(const snippet of ['<h2>Heading</h2>','<strong>bold</strong>','<ul>','<ol>','href="https://example.com/"','<img src="https://example.com/a.png"','&lt;script&gt;'])assert.ok(html.includes(snippet),snippet);
  assert.ok(!html.includes('<script>'));assert.ok(!html.includes('href="javascript:'));assert.ok(!html.includes('src="data:'));
+ const vietnamese=renderMarkdown('**Đậm** và *nghiêng*\nDòng thứ hai\n[x](data:text/html,bad)\n*<img src=x onerror=alert(1)>*');
+ assert.match(vietnamese,/<strong>Đậm<\/strong> và <em>nghiêng<\/em><br>Dòng thứ hai/);
+ assert.ok(!vietnamese.includes('href="data:'));assert.ok(!vietnamese.includes('<img src=x'));
 });
 
 test('upload requires admin and CSRF, decodes actual bytes, protects draft media and preserves linked file on editing',async()=>{

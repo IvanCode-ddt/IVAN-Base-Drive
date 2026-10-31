@@ -180,11 +180,11 @@ export function openDatabase(filename) {
     const is_spotlight=0;
     const is_pinned=post.is_pinned??old?.is_pinned??0,pin_order=post.pin_order??old?.pin_order??0;
     if(is_pinned===1&&(pin_order<1||pin_order>20))throw new InputError('Vị trí ghim phải từ 1 đến 20.');
+    if(is_pinned===1&&db.prepare('SELECT COUNT(*) AS n FROM posts WHERE is_pinned=1 AND deleted_at IS NULL AND id<>?').get(old?.id||'').n>=20)throw new InputError('Đã đủ 20 bài ghim. Hãy bỏ ghim một bài để giải phóng vị trí.');
     if(is_pinned===1){
       const conflict=db.prepare('SELECT title FROM posts WHERE is_pinned=1 AND pin_order=? AND deleted_at IS NULL AND id<>?').get(pin_order,old?.id||'');
       if(conflict)throw new InputError(`Vị trí ghim ${pin_order} đã có bài sử dụng: “${conflict.title}”. Chọn số khác.`);
     }
-    if(is_pinned===1&&db.prepare('SELECT COUNT(*) AS n FROM posts WHERE is_pinned=1 AND deleted_at IS NULL AND id<>?').get(old?.id||'').n>=5)throw new InputError('Tối đa 5 bài ghim. Hãy bỏ ghim một bài trước.');
     return{...post,is_pinned,pin_order,is_spotlight,metadata:post.metadata??old?.metadata??{},media_sources:post.media_sources??old?.media_sources??[],minimum_requirements:Object.hasOwn(post,'minimum_requirements')?post.minimum_requirements:old?.minimum_requirements??'',recommended_requirements:Object.hasOwn(post,'recommended_requirements')?post.recommended_requirements:old?.recommended_requirements??'',install_size:Object.hasOwn(post,'install_size')?post.install_size:old?.install_size??'',operating_systems:post.operating_systems??old?.operating_systems??[]};
   };
   const musicTracks=postId=>db.prepare('SELECT * FROM music_tracks WHERE album_id=? ORDER BY position,id').all(postId);

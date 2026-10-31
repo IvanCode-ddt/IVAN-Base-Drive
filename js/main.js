@@ -1,5 +1,5 @@
-import { CATEGORIES,filterPosts,sortPinnedPosts } from './data.js?v=15';
-import { cover,detailHTML,escapeHTML,categoryName,spotlightHTML,albumCardHTML,albumDetailHTML } from './content.js?v=20';
+import { CATEGORIES,filterPosts,sortPinnedPosts } from './data.js?v=21';
+import { cover,detailHTML,escapeHTML,categoryName,spotlightHTML,albumCardHTML,albumDetailHTML } from './content.js?v=21';
 import { createPostSource } from './post-source.js?v=12';
 import {initPlayers} from './media.js?v=14';
 const source=createPostSource();
@@ -71,12 +71,13 @@ function enter(node,distance=8){
 }
 reducedMotion.addEventListener?.('change',syncMotion);ambientViewport.addEventListener?.('change',syncMotion);mobileAmbientViewport.addEventListener?.('change',syncMotion);
 document.addEventListener('visibilitychange',syncMotion);syncMotion();
-let posts=[],albums=[],albumsLoaded=false,category='all',group='library',libraryScroll=0,routeVersion=0,highlightConfig=null;
+const categoryIds=['game','app','other','all'],initialCategory=new URLSearchParams(location.search).get('category');
+let posts=[],albums=[],albumsLoaded=false,category=categoryIds.includes(initialCategory)?initialCategory:'game',group='library',libraryScroll=0,routeVersion=0,highlightConfig=null;
 let disposePlayers=()=>{};
 let highlightTimer;
 function renderFilters(){
  const filters=$('#category-filters');
- if(!filters.children.length)filters.innerHTML=[{id:'all',name:'Tất cả'},...CATEGORIES.filter(c=>['game','app','other'].includes(c.id))].map(c=>`<button class="filter" data-category="${c.id}">${c.name}</button>`).join('');
+ if(!filters.children.length)filters.innerHTML=[...CATEGORIES.filter(c=>['game','app','other'].includes(c.id)),{id:'all',name:'Tất cả'}].map(c=>`<button class="filter" data-category="${c.id}">${c.name.toLocaleUpperCase('vi')}</button>`).join('');
  for(const button of filters.children)button.setAttribute('aria-pressed',String(button.dataset.category===category));
 }
 function renderPosts(){
@@ -118,8 +119,11 @@ function showEmpty(comingSoon,query,kind='library'){
  $('#feedback-request').hidden=!query;
 }
 function renderGroup(){
- const hash=location.hash;
+ const [hash,params='']=location.hash.split('?');
+ const requested=new URLSearchParams(params).get('category');
+ if(categoryIds.includes(requested))category=requested;
  group=hash==='#music'?'music':hash==='#films'?'films':'library';
+ renderFilters();
  $('#library-intro').hidden=group!=='library';
  renderPosts();
  enter(group==='library'?$('#post-grid'):group==='music'?$('#music-view'):$('#film-view'),4);
@@ -224,9 +228,9 @@ async function load(){
  }
  catch{$('#result-count').textContent='';$('#library-status').hidden=false;$('#library-status').textContent=source.local?'Không kết nối được máy chủ. Hãy chạy npm.cmd start và mở http://localhost:3000.':'Chưa tải được dữ liệu tĩnh. Hãy chạy npm.cmd run export và cập nhật thư mục docs/ lên GitHub Pages.';}
 }
-$('#category-filters').addEventListener('click',e=>{const b=e.target.closest('[data-category]');if(!b)return;category=b.dataset.category;renderFilters();renderPosts();document.querySelector(`[data-category="${category}"]`).focus();});
+$('#category-filters').addEventListener('click',e=>{const b=e.target.closest('[data-category]');if(!b)return;category=b.dataset.category;history.pushState(null,'',`#library?category=${category}`);renderFilters();renderPosts();document.querySelector(`[data-category="${category}"]`).focus();});
 $('#search-input').addEventListener('input',renderPosts);
-$('#reset-filters').addEventListener('click',()=>{category='all';$('#search-input').value='';renderFilters();renderPosts();$('#search-input').focus();});
+$('#reset-filters').addEventListener('click',()=>{category='all';history.pushState(null,'','#library?category=all');$('#search-input').value='';renderFilters();renderPosts();$('#search-input').focus();});
 for(const link of document.querySelectorAll('[data-local-admin]'))link.hidden=!source.local;
 async function openFeedback(searchTerm=''){
  const dialog=$('#feedback-dialog');dialog.showModal();$('#feedback-notice').textContent='Đang mở biểu mẫu…';
@@ -246,4 +250,9 @@ $('#feedback-open').addEventListener('click',()=>openFeedback());
 $('#feedback-request').addEventListener('click',()=>openFeedback($('#search-input').value.trim()));
 $('#feedback-close').addEventListener('click',()=>{$('#feedback-dialog').close();$('#feedback-frame').replaceChildren();});
 $('#feedback-dialog').addEventListener('close',()=>$('#feedback-frame').replaceChildren());
+// Record the initial default so Back restores Game instead of a later selection.
+if(!location.hash||location.hash==='#library'){
+ const requested=new URLSearchParams(location.search).get('category');
+ history.replaceState(null,'','#library?category='+(['game','app','other','all'].includes(requested)?requested:'game'));
+}
 window.addEventListener('hashchange',route);window.addEventListener('resize',syncGroupIndicator,{passive:true});renderFilters();load();route();enter($('#spotlight').hidden?$('.hero-copy'):$('#spotlight .spotlight-copy'),6);

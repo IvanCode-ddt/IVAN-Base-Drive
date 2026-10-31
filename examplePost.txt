@@ -1,0 +1,20 @@
+## Installation
+**(Game tải ở ví dụ là Hollow_Knight_Silksong)**
+1.Tải và giải nén file [Tên_game_đã_tải].rar
+2.Sau khi giải nén file sẽ có cấu trúc như sau:
+![Ảnh minh họa](uploads/9561c974-40ff-424a-a1e6-4cbf9ffaefda.webp)
+3.Tìm và chạy file [Tên_game_đã_tải].exe
+![Ảnh minh họa](uploads/06c5c738-c0fb-40a8-a1b2-deddafe89e9e.webp)
+(game tải ở ví dụ là Hollow_Knight_Silksong)
+
+## Việt Hóa:
+-Sử dụng việt hóa của các bên như(**nếu có**):
++CCT:[link](https://canhcutteam.com/)
++Theredteam:[link](https://theredteam.vn/)
++Game Thuần Việt:[link](https://gamethuanviet.com/)
++NVP Việt Hóa:[link](https://www.nvpviethoa.com/)
++Mê Việt Hóa:[link](https://meviethoa.com/)
+
+External link:
+
+steamrip.com

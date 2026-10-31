@@ -28,6 +28,7 @@ test('publish card desktop/mobile requires preview, checkbox and final confirmat
    await page.goto(config.baseUrl+'/auth/google');await page.waitForSelector('#publish-start');
    const before=simulatedPushes;await page.locator('#publish-start').click();await page.waitForSelector('#publish-review[open]');
    assert.equal(await page.locator('#publish-confirm').isDisabled(),true);assert.ok((await page.locator('#publish-change-list').textContent()).includes('docs/content/posts.json'));
+   await page.frameLocator('#publish-frame').locator('[data-category=all]').click();
    await page.frameLocator('#publish-frame').getByRole('heading',{name:'Xuất bản thử nghiệm',exact:true}).waitFor();
    assert.equal(simulatedPushes,before);await page.locator('#publish-cancel').click();assert.equal(simulatedPushes,before);
    await page.locator('#publish-start').click();await page.waitForSelector('#publish-review[open]');await page.locator('#publish-consent').check();

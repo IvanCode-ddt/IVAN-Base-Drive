@@ -26,7 +26,7 @@ test('desktop/mobile pinned feed, filters, Google Form dialog and safe feedback 
    db.setPin(first.id,1,5);db.setPin(second.id,0,0);await exportStatic({databasePath:filename,outputDir:site});
    const context=await browser.newContext({viewport}),page=await context.newPage(),errors=[];page.on('pageerror',error=>errors.push(error.message));
    await context.route('https://docs.google.com/forms/**',route=>route.fulfill({contentType:'text/html',body:'<p>Mock Google Form; no submission</p>'}));
-   await page.goto(config.baseUrl+'/IVAN-Base-Drive/');await page.locator('#post-grid .post-card').first().waitFor();
+   await page.goto(config.baseUrl+'/IVAN-Base-Drive/#library?category=all');await page.locator('#post-grid .post-card').first().waitFor();
    assert.equal(await page.locator('#post-grid .post-card').count(),2);assert.deepEqual(await page.locator('#post-grid h3').allTextContents(),['First game','Second app']);
    assert.match(await page.locator('body').evaluate(element=>getComputedStyle(element).backgroundImage),/radial-gradient/);
    await page.locator('[data-group="music"]').click();assert.equal(await page.locator('#empty-state-title').textContent(),'Coming soon');
@@ -35,12 +35,12 @@ test('desktop/mobile pinned feed, filters, Google Form dialog and safe feedback 
    assert.match(await page.locator('#feedback-context').textContent(),/Missing package/);assert.equal(await page.locator('#search-input').inputValue(),'Missing package');
    await page.locator('#feedback-frame iframe').waitFor();await page.locator('#feedback-close').click();await page.locator('#content-groups [data-group="library"]').click();await page.locator('#search-input').fill('');await page.locator('[data-category="all"]').click();
    await page.locator('#feedback-open').click();await page.locator('#feedback-frame iframe').waitFor();assert.ok((await page.locator('#feedback-link').getAttribute('href')).startsWith(DEFAULT_FEEDBACK_FORM_URL));await page.locator('#feedback-close').click();
-   await page.emulateMedia({reducedMotion:'reduce'});assert.equal(await page.evaluate(()=>document.getAnimations().filter(animation=>animation.playState==='running').length),0);
+   await page.emulateMedia({reducedMotion:'reduce'});await page.waitForFunction(()=>document.getAnimations().filter(animation=>animation.playState==='running').length===0);
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true);
    await page.goto(config.baseUrl+'/auth/google');await page.locator('#post-table .dashboard-row').first().waitFor();
    const row=page.locator('#post-table .dashboard-row').filter({hasText:'Second app'});await row.locator('[data-pin]').click();await row.getByText('★ Bỏ ghim',{exact:true}).waitFor();
    await page.waitForFunction(async(id)=>(await(await fetch('/api/admin/posts')).json()).find(post=>post.id===id).pin_order===1,second.id);
-   await exportStatic({databasePath:filename,outputDir:site});await page.goto(config.baseUrl+'/IVAN-Base-Drive/');await page.locator('#post-grid .post-card').first().waitFor();
+   await exportStatic({databasePath:filename,outputDir:site});await page.goto(config.baseUrl+'/IVAN-Base-Drive/#library?category=all');await page.locator('#post-grid .post-card').first().waitFor();
    assert.deepEqual(await page.locator('#post-grid h3').allTextContents(),['Second app','First game']);assert.equal(await page.locator('#post-grid .post-card').count(),2);
    await page.locator('#search-input').fill('First');assert.equal(await page.locator('#post-grid .post-card').count(),1);assert.equal(await page.locator('#post-grid h3').textContent(),'First game');await page.locator('#search-input').fill('');await page.locator('[data-category="app"]').click();assert.equal(await page.locator('#post-grid .post-card').count(),1);
    await page.locator('#post-grid .post-card').click();await page.locator('#detail-view h1').waitFor();assert.match(await page.locator('#detail-view h1').textContent(),/Second app/);assert.match(await page.locator('#detail-view').textContent(),/Khoảng 25 GB/);

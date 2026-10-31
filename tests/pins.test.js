@@ -11,6 +11,33 @@ import {createApp} from '../server/app.js';
 import {exportStatic,readPublished} from '../scripts/export-static.mjs';
 import {splitFeatured,filterPosts} from '../js/data.js';
 const post=(n,extra={})=>validatePost({title:`Pinned ${n}`,slug:`pinned-${n}`,category:'game',description:'Pin test',images:[],status:'published',...extra});
+
+test('all twenty pin positions persist, reject conflicts, release on unpin/delete and export in order',async()=>{
+ const directory=await mkdtemp(path.join(os.tmpdir(),'ivan-twenty-pins-')),filename=path.join(directory,'db.sqlite');let db=openDatabase(filename);
+ try{
+  const saved=Array.from({length:21},(_,i)=>db.create(post('twenty-'+i)));
+  for(let i=0;i<20;i++)db.setPin(saved[i].id,1,i+1);
+  assert.equal(db.get(saved[5].id).pin_order,6);assert.equal(db.get(saved[19].id).pin_order,20);
+  assert.throws(()=>db.setPin(saved[20].id,1,20),/Đã đủ 20/);
+  assert.equal(db.update(saved[19].id,post('twenty-19',{is_pinned:true,pin_order:20})).pin_order,20);
+  db.setPin(saved[5].id,0,6);
+  assert.throws(()=>db.setPin(saved[20].id,1,20),/đã có bài sử dụng/);
+  db.setPin(saved[20].id,1,6);
+  assert.throws(()=>db.setPin(saved[5].id,1,21),InputError);
+  db.close();db=openDatabase(filename);
+  assert.equal(db.get(saved[20].id).pin_order,6);assert.equal(db.get(saved[5].id).is_pinned,0);
+  await exportStatic({databasePath:filename,outputDir:path.join(directory,'site')});
+  let payload=JSON.parse(await readFile(path.join(directory,'site/content/posts.json'),'utf8'));
+  assert.equal(splitFeatured(payload.posts).featured.length,20);
+  assert.deepEqual(splitFeatured(payload.posts).featured.map(p=>p.pin_order),Array.from({length:20},(_,i)=>i+1));
+  db.update(saved[19].id,post('twenty-19',{status:'draft'}));db.softDelete(saved[0].id);
+  db.setPin(saved[5].id,1,1);assert.throws(()=>db.restore(saved[0].id),InputError);
+  await exportStatic({databasePath:filename,outputDir:path.join(directory,'site')});
+  payload=JSON.parse(await readFile(path.join(directory,'site/content/posts.json'),'utf8'));
+  assert.ok(!payload.posts.some(p=>p.id===saved[0].id||p.id===saved[19].id));
+  assert.equal(db.get(saved[19].id).is_pinned,1);
+ }finally{db.close();await rm(directory,{recursive:true,force:true});}
+});
 test('pin limit, priority, Draft/deleted visibility, compatibility and atomic rollback',t=>{
  const db=openDatabase(':memory:');t.after(()=>db.close());const saved=[];
  for(let i=0;i<6;i++)saved.push(db.create(post(i)));
@@ -23,7 +50,7 @@ test('pin limit, priority, Draft/deleted visibility, compatibility and atomic ro
  assert.equal(view.featured[0].id,saved[5].id);assert.equal(view.featured.length,4);assert.equal(view.regular.length,1);
  assert.equal(splitFeatured(filterPosts(publicPosts,'Pinned 5','all')).featured.length,1);
  db.softDelete(saved[5].id);assert.equal(db.list(true).some(p=>p.id===saved[5].id),false);
- db.setPin(saved[0].id,1,2);assert.throws(()=>db.restore(saved[5].id),InputError);
+ db.setPin(saved[0].id,1,2);assert.equal(db.restore(saved[5].id),true);
 });
 test('v4 migration verifies backup and preserves posts/Drive; static export carries pins only on public posts',async()=>{
  const directory=await mkdtemp(path.join(os.tmpdir(),'ivan-pins-')),filename=path.join(directory,'db.sqlite');let db;

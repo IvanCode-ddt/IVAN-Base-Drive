@@ -1,3 +1,4 @@
+import {initImagePaste} from './clipboard-images.js?v=1';
 import { initDrivePicker } from './drive-picker.js?v=9';
 import { slugify } from './editor.js?v=9';
 import { imageURL,isDownloadArchive } from '/js/media.js?v=18';
@@ -19,7 +20,8 @@ function renderPackages(){
 }
 function renderCover(){
  const target=$('#cover-preview');target.replaceChildren();const value=form.elements.cover_url.value;if(!value)return;
- const image=document.createElement('img');image.src=imageURL(value);image.alt='Ảnh bìa album';image.loading='lazy';image.className='music-cover-preview';target.append(image);
+ const image=document.createElement('img');image.src=imageURL(value);image.alt='Ảnh bìa album';image.loading='lazy';image.className='music-cover-preview';
+ const remove=document.createElement('button');remove.type='button';remove.className='secondary-button';remove.textContent='Gỡ ảnh';remove.addEventListener('click',()=>{form.elements.cover_url.value='';renderCover();setDirty();});target.append(image,remove);
 }
 const driveUI=initDrivePicker({api,displayFilter:isDownloadArchive,onDirty:()=>{setDirty();renderPackages();}});
 function fill(album=null){
@@ -40,16 +42,20 @@ $('#album-package-files').addEventListener('change',event=>{
  setDirty();
 });
 form.addEventListener('input',event=>{if(!event.target.matches('#album-package-files *'))setDirty();});
-$('#cover-upload').addEventListener('change',async event=>{
- const input=event.target,file=input.files[0];if(!file)return;
+async function uploadCover(files,pasted=false){
+ const input=$('#cover-upload'),file=files[0];if(!file||input.disabled)return;
+ if(pasted&&form.elements.cover_url.value&&!confirm('Thay ảnh bìa album bằng ảnh vừa dán?'))return;
+ if(!['image/png','image/jpeg','image/webp'].includes(file.type)){message('Chỉ nhận JPEG, PNG, WebP.',true);return;}
  if(file.size>5*1024*1024){message('Ảnh bìa tối đa 5 MB.',true);return;}
  input.disabled=true;
  try{const response=await fetch('/api/admin/images',{method:'POST',headers:{'Content-Type':file.type,'X-CSRF-Token':csrf},body:file});const data=await response.json();if(!response.ok)throw new Error(data.error||'Không tải ảnh lên được.');form.elements.cover_url.value=data.path;renderCover();setDirty();}
  catch(error){message(error.message,true);notifications.error(error.message);}
  finally{input.disabled=false;input.value='';}
-});
+}
+$('#cover-upload').addEventListener('change',()=>uploadCover([...$('#cover-upload').files]));
+initImagePaste($('#cover-upload'),files=>uploadCover(files,true));
 form.addEventListener('submit',async event=>{
- event.preventDefault();const intent=event.submitter?.value||'draft';
+ event.preventDefault();if($('#cover-upload').disabled)return message('Vui lòng chờ ảnh tải lên xong.',true);const intent=event.submitter?.value||'draft';
  const post={...(loadedPost||{}),title:form.elements.title.value,slug:form.elements.slug.value,category:'music',
   description:form.elements.description.value,introduction:loadedPost?.introduction||'',instructions:loadedPost?.instructions||'',
   cover_url:form.elements.cover_url.value,images:loadedPost?.images||[],attachment_url:loadedPost?.attachment_url||'',
