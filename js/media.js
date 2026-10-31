@@ -2,6 +2,17 @@ export const UPLOAD_PATH = /^uploads\/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-
 const ARCHIVE_TYPES = new Set(['application/zip','application/vnd.rar','application/x-rar-compressed','application/x-7z-compressed']);
 export function isDownloadArchive(file){return !!file&&(ARCHIVE_TYPES.has(file.mime_type)||/\.(zip|rar|7z)$/i.test(file.name||''));}
 export function isUploadPath(value) { return typeof value === 'string' && UPLOAD_PATH.test(value); }
+export function externalDownloadURL(value) {
+  try {
+    const url = new URL(value);
+    if (url.protocol !== 'https:' || !url.hostname || url.username || url.password) return '';
+    const sensitive = /(?:^|[_-])(?:access[_-]?token|oauth[_-]?token|refresh[_-]?token|id[_-]?token|token|cookie|client[_-]?secret|secret|password|credential|authorization|auth|signature|sig|access[_-]?key|key)(?:$|[_-])/i;
+    const fragment = url.hash.slice(1);
+    const fragmentParameters = fragment.includes('=') ? [...new URLSearchParams(fragment.slice(fragment.lastIndexOf('?') + 1)).keys()] : [];
+    if ([...url.searchParams.keys(), ...fragmentParameters].some(key => sensitive.test(key))) return '';
+    return url.href;
+  } catch { return ''; }
+}
 export function imageURL(value) {
   if (isUploadPath(value)) {
     return globalThis.location?.pathname?.startsWith('/admin') ? `/admin/media/${value.slice(8)}` : value;

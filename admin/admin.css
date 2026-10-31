@@ -19,6 +19,7 @@
 .highlight-slide-actions{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
 .highlight-slide-actions label{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:12px}
 .highlight-preview{margin:28px 0}.highlight-preview .spotlight{margin:12px 0;pointer-events:none}.highlight-preview .spotlight-slide,.highlight-preview .spotlight-cover,.highlight-preview .spotlight-copy{pointer-events:none}
+.external-link-row{padding:16px;border:1px solid var(--line);border-radius:10px;background:var(--panel)}.external-link-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.external-link-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.external-link-actions button{width:auto}@media(max-width:600px){.external-link-fields{grid-template-columns:1fr}}
 @media(max-width:600px){.admin-toast-region{right:12px;bottom:12px}.highlight-slide-row{align-items:flex-start;flex-direction:column}.highlight-slide-actions{width:100%}.highlight-settings{align-items:stretch;flex-direction:column}.highlight-settings input[type=number],.highlight-settings select{width:100%}}
 .create-type-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:20px 0}
 #create-type-dialog{width:min(720px,calc(100vw - 28px));padding:25px;background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:14px}

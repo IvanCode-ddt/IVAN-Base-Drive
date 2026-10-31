@@ -70,7 +70,7 @@ form.addEventListener('submit',async event=>{
 $('#logout').addEventListener('click',async()=>{try{await api('/api/admin/logout',{method:'POST',body:'{}'});dirty=false;location.assign('/login');}catch(error){message(error.message,true);notifications.error(error.message);}});
 window.addEventListener('beforeunload',event=>{if(dirty){event.preventDefault();event.returnValue='';}});
 try{
- const session=await api('/api/admin/session');if(session.contentSchemaVersion!==13)throw new Error('Backend đang chạy phiên bản cũ. Khởi động lại IVAN Admin rồi tải lại trình soạn album.');
+ const session=await api('/api/admin/session');if(session.contentSchemaVersion!==14)throw new Error('Backend đang chạy phiên bản cũ. Khởi động lại IVAN Admin rồi tải lại trình soạn album.');
  csrf=session.csrfToken;$('#admin-email').textContent=session.email;
  const edit=new URLSearchParams(location.search).get('edit'),album=edit?await api(`/api/admin/music/albums/${encodeURIComponent(edit)}`):null;
  if(edit&&!album)throw new Error('Không tìm thấy album.');

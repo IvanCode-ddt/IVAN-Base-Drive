@@ -1,5 +1,5 @@
 export const categories = ['film', 'game', 'music', 'app', 'other'];
-import { isUploadPath,CONTENT_FIELDS,LEGACY_CONTENT_FIELDS,MEDIA_TYPES,directMediaURL,drivePreview } from '../js/media.js';
+import { isUploadPath,CONTENT_FIELDS,LEGACY_CONTENT_FIELDS,MEDIA_TYPES,directMediaURL,drivePreview,externalDownloadURL } from '../js/media.js';
 export class InputError extends Error {}
 export function validatePin(body){
   if(!body||![true,false,0,1].includes(body.is_pinned)||!Number.isInteger(body.pin_order)||body.pin_order<0||body.pin_order>9999||(Number(body.is_pinned)===1&&(body.pin_order<1||body.pin_order>20)))throw new InputError('Thông tin ghim không hợp lệ. Bài được ghim cần vị trí từ 1 đến 20.');
@@ -83,5 +83,16 @@ export function validatePost(body) {
       }else throw new InputError('Loại nguồn phát không hợp lệ.');
     }
   }
-  return { title, slug, category: body.category, description, introduction, instructions, cover_url, images, attachment_url, drive_file_id, media_url, status: body.status,...(install_size===undefined?{}:{install_size}),...(hasOperatingSystems?{operating_systems}:{}),...pin,...(Object.hasOwn(body,'metadata')?{metadata}:{}),...(Object.hasOwn(body,'media_sources')?{media_sources}:{}),...(Object.hasOwn(body,'minimum_requirements')?{minimum_requirements:freeText(body,'minimum_requirements',20000)}:{}),...(Object.hasOwn(body,'recommended_requirements')?{recommended_requirements:freeText(body,'recommended_requirements',20000)}:{}) };
+  let external_links;
+  if(Object.hasOwn(body,'external_links')){
+    if(!Array.isArray(body.external_links)||body.external_links.length>50)throw new InputError('Tối đa 50 liên kết tải ngoài.');
+    external_links=body.external_links.map(link=>{
+      if(!link||typeof link!=='object'||Array.isArray(link))throw new InputError('Liên kết tải ngoài không hợp lệ.');
+      const name=text(link,'name',160,true),urlValue=text(link,'url',2048,true),url=externalDownloadURL(urlValue);
+      if(!url)throw new InputError('Liên kết tải ngoài chỉ chấp nhận URL HTTPS hợp lệ, không chứa thông tin đăng nhập hoặc token.');
+      if(!['direct','download_page'].includes(link.kind))throw new InputError('Loại liên kết tải ngoài không hợp lệ.');
+      return{name,url,kind:link.kind,provider:text(link,'provider',120),size:text(link,'size',80)};
+    });
+  }
+  return { title, slug, category: body.category, description, introduction, instructions, cover_url, images, attachment_url, drive_file_id, media_url, status: body.status,...(install_size===undefined?{}:{install_size}),...(hasOperatingSystems?{operating_systems}:{}),...pin,...(Object.hasOwn(body,'metadata')?{metadata}:{}),...(Object.hasOwn(body,'media_sources')?{media_sources}:{}),...(external_links===undefined?{}:{external_links}),...(Object.hasOwn(body,'minimum_requirements')?{minimum_requirements:freeText(body,'minimum_requirements',20000)}:{}),...(Object.hasOwn(body,'recommended_requirements')?{recommended_requirements:freeText(body,'recommended_requirements',20000)}:{}) };
 }

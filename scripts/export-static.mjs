@@ -16,11 +16,13 @@ export function readPublished(filename) {
     db.exec('BEGIN');
     const hasTrash=db.prepare('PRAGMA table_info(posts)').all().some(column=>column.name==='deleted_at');
     const hasMusicAlbums=!!db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='music_albums'").get();
+    const hasExternalLinks=!!db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='post_external_links'").get();
     const musicIds=new Set(hasMusicAlbums?db.prepare('SELECT post_id FROM music_albums').all().map(row=>row.post_id):[]);
     const posts = db.prepare(`SELECT * FROM posts WHERE status='published' ${hasTrash?'AND deleted_at IS NULL':''} ORDER BY updated_at DESC,id`).all();
     const files = db.prepare('SELECT * FROM post_drive_files WHERE post_id=? AND sharing_confirmed=1 ORDER BY linked_at,file_id');
+    const externalLinks=hasExternalLinks?db.prepare('SELECT name,url,kind,provider,size,priority FROM post_external_links WHERE post_id=? ORDER BY priority,id'):null;
     const result = posts.map(post => {
-      const value=publicPost({...post, images:JSON.parse(post.images), drive_files:files.all(post.id)});
+      const value=publicPost({...post, images:JSON.parse(post.images), drive_files:files.all(post.id),external_links:externalLinks?.all(post.id)||[]});
       return value?{...value,content_type:musicIds.has(post.id)?'music_album':'post'}:null;
     }).filter(Boolean);
     db.exec('COMMIT'); return result;

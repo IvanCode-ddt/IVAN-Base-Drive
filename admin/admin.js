@@ -1,4 +1,4 @@
-import { initEditor } from './editor.js?v=9';
+import { initEditor } from './editor.js?v=10';
 import { initDrivePicker } from './drive-picker.js?v=9';
 import { detailHTML } from '/js/content.js?v=17';
 import {createPostActions} from './actions.js?v=10';
@@ -100,6 +100,7 @@ form.addEventListener('submit',async event=>{
  body.operating_systems=[...form.querySelectorAll('[name="operating_systems"]:checked')].map(checkbox=>checkbox.value);
  captureMetadata();body.metadata={...metadataDraft};
  body.media_sources=mediaDraft.map(source=>({...source}));
+ body.external_links=editorUI.externalLinks();
  body.drive_file_ids=driveUI.ids();
  body.cms_contract=2;
  body.drive_public_file_ids=driveUI.files().filter(file=>file.sharing_confirmed===1&&file.sharing_access==='anyone').map(file=>file.file_id);
@@ -125,4 +126,4 @@ form.addEventListener('submit',async event=>{
 $('#new-post').addEventListener('click',()=>{if(dirty&&!confirm('Bỏ các thay đổi chưa lưu?'))return;fill();message('Đang tạo bài viết mới.');});
 $('#logout').addEventListener('click',async()=>{if(dirty&&!confirm('Đăng xuất và bỏ thay đổi chưa lưu?'))return;try{await api('/api/admin/logout',{method:'POST',body:'{}'});dirty=false;location.assign('/login');}catch(error){message(error.message,true);}});
 window.addEventListener('beforeunload',event=>{if(dirty){event.preventDefault();event.returnValue='';}});
-try{const session=await api('/api/admin/session');if(session.saveContractVersion!==2||session.contentSchemaVersion!==13)throw new Error('Backend đang chạy phiên bản cũ. Khởi động lại IVAN Admin rồi tải lại CMS.');csrf=session.csrfToken;$('#admin-email').textContent=session.email;pinPosts=await api('/api/admin/posts');const edit=new URLSearchParams(location.search).get('edit');fill(edit?await api(`/api/admin/posts/${encodeURIComponent(edit)}`):null);form.removeAttribute('inert');}catch(error){message(error.message,true);notifications.error(error.message);}
+try{const session=await api('/api/admin/session');if(session.saveContractVersion!==2||session.contentSchemaVersion!==14)throw new Error('Backend đang chạy phiên bản cũ. Khởi động lại IVAN Admin rồi tải lại CMS.');csrf=session.csrfToken;$('#admin-email').textContent=session.email;pinPosts=await api('/api/admin/posts');const edit=new URLSearchParams(location.search).get('edit');fill(edit?await api(`/api/admin/posts/${encodeURIComponent(edit)}`):null);form.removeAttribute('inert');}catch(error){message(error.message,true);notifications.error(error.message);}

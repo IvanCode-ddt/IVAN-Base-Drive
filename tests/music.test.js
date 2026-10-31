@@ -39,7 +39,7 @@ test('v12 migration creates separate album tables after a verified backup and pr
   db=openDatabase(filename);
   assert.equal(db.get(legacy.id).media_url,'https://media.example.test/legacy.mp3');assert.equal(db.get(film.id).title,'Legacy film');
   assert.equal(db.musicAlbums().length,0);
-  const version=new DatabaseSync(filename,{readOnly:true});assert.equal(version.prepare('PRAGMA user_version').get().user_version,13);version.close();
+  const version=new DatabaseSync(filename,{readOnly:true});assert.equal(version.prepare('PRAGMA user_version').get().user_version,14);version.close();
   const reports=(await readdir(path.join(directory,'backups'))).filter(name=>name.endsWith('.verified.json'));
   assert.equal(reports.length,1);const report=JSON.parse(await readFile(path.join(directory,'backups',reports[0]),'utf8'));assert.equal(report.integrity,'ok');assert.equal(report.postCount,2);
  }finally{db?.close();await rm(directory,{recursive:true,force:true});}

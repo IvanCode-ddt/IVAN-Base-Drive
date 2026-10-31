@@ -9,7 +9,7 @@ export function openDatabase(filename) {
   if (filename !== ':memory:') mkdirSync(path.dirname(filename), { recursive: true });
   const db = new DatabaseSync(filename);
   const initialVersion=db.prepare('PRAGMA user_version').get().user_version;
-  if(initialVersion>13){db.close();throw new Error('Database mới hơn ứng dụng.');}
+  if(initialVersion>14){db.close();throw new Error('Database mới hơn ứng dụng.');}
   if(filename!==':memory:'&&initialVersion<13&&db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='posts'").get()){
     try{const saved=verifiedBackup(db,filename);console.log(`Verified pre-migration backup: ${saved.path} (${saved.postCount} posts; integrity ok)`);}catch(error){db.close();throw error;}
   }
@@ -24,7 +24,7 @@ export function openDatabase(filename) {
       created_at TEXT NOT NULL, updated_at TEXT NOT NULL
     ); CREATE INDEX IF NOT EXISTS posts_status_updated ON posts(status, updated_at DESC);`);
   const version = db.prepare('PRAGMA user_version').get().user_version;
-  if (version > 13) { db.close(); throw new Error('Database mới hơn phiên bản ứng dụng. Không tự động hạ cấp.'); }
+  if (version > 14) { db.close(); throw new Error('Database mới hơn phiên bản ứng dụng. Không tự động hạ cấp.'); }
   if (version < 2) {
     db.exec('BEGIN IMMEDIATE');
     try {
@@ -152,7 +152,28 @@ export function openDatabase(filename) {
     CREATE INDEX IF NOT EXISTS music_tracks_order ON music_tracks(album_id,position);
     PRAGMA user_version=13; COMMIT;`);
   }catch(error){db.exec('ROLLBACK');db.close();throw error;}}
-  const decode = row => row ? { ...row, images: JSON.parse(row.images),metadata:JSON.parse(row.metadata),media_sources:JSON.parse(row.media_sources),operating_systems:JSON.parse(row.operating_systems), drive_files: linkedFiles(row.id) } : null;
+  if(version<14){db.exec('BEGIN IMMEDIATE');try{
+    db.exec(`CREATE TABLE IF NOT EXISTS post_external_links(
+      id TEXT PRIMARY KEY,
+      post_id TEXT NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      url TEXT NOT NULL,
+      kind TEXT NOT NULL CHECK(kind IN ('direct','download_page')),
+      provider TEXT NOT NULL DEFAULT '',
+      size TEXT NOT NULL DEFAULT '',
+      priority INTEGER NOT NULL CHECK(priority>=0),
+      UNIQUE(post_id,priority)
+    );
+    CREATE INDEX IF NOT EXISTS post_external_links_order ON post_external_links(post_id,priority);
+    PRAGMA user_version=14; COMMIT;`);
+  }catch(error){db.exec('ROLLBACK');db.close();throw error;}}
+  const externalLinks = id => db.prepare('SELECT id,name,url,kind,provider,size,priority FROM post_external_links WHERE post_id=? ORDER BY priority,id').all(id);
+  const replaceExternalLinks=(postId,links)=>{
+    db.prepare('DELETE FROM post_external_links WHERE post_id=?').run(postId);
+    const insert=db.prepare('INSERT INTO post_external_links(id,post_id,name,url,kind,provider,size,priority) VALUES(?,?,?,?,?,?,?,?)');
+    links.forEach((link,priority)=>insert.run(randomUUID(),postId,link.name,link.url,link.kind,link.provider,link.size,priority));
+  };
+  const decode = row => row ? { ...row, images: JSON.parse(row.images),metadata:JSON.parse(row.metadata),media_sources:JSON.parse(row.media_sources),operating_systems:JSON.parse(row.operating_systems), drive_files: linkedFiles(row.id),external_links:externalLinks(row.id) } : null;
   const columns = ['slug','title','category','description','introduction','instructions','cover_url','images','attachment_url','drive_file_id','media_url','status','is_pinned','pin_order','is_spotlight','metadata','media_sources','minimum_requirements','recommended_requirements','install_size','operating_systems'];
   const values = post => columns.map(key => ['images','metadata','media_sources','operating_systems'].includes(key) ? JSON.stringify(post[key]) : post[key]);
   const pinFields=(post,old)=>{
@@ -171,6 +192,7 @@ export function openDatabase(filename) {
   return {
     close: () => db.close(),
     linkedFiles,
+    externalLinks,
     publicPost,
     feedbackState:key=>db.prepare('SELECT last_synced_at,row_count FROM feedback_sync_state WHERE source_key=?').get(key)||null,
     highlightConfig({publicOnly=false}={}){
@@ -308,13 +330,17 @@ export function openDatabase(filename) {
       post=pinFields(post);
       const id = randomUUID(), now = new Date().toISOString();
       db.prepare(`INSERT INTO posts (id,${columns.join(',')},created_at,updated_at) VALUES (${Array(columns.length+3).fill('?').join(',')})`).run(id,...values(post),now,now);
+      if(Object.hasOwn(post,'external_links'))replaceExternalLinks(id,post.external_links);
       return this.get(id);
     },
     update(id, post) {
       const old=this.get(id);if(!old)return null;post=pinFields(post,old);
-      if(values(post).every((value,index)=>value===values(old)[index]))return old;
+      const linksChanged=Object.hasOwn(post,'external_links')&&JSON.stringify(post.external_links)!==JSON.stringify(old.external_links);
+      if(values(post).every((value,index)=>value===values(old)[index])&&!linksChanged)return old;
       const result = db.prepare(`UPDATE posts SET ${columns.map(key => `${key}=?`).join(',')},updated_at=? WHERE id=? AND deleted_at IS NULL`).run(...values(post),new Date().toISOString(),id);
-      return result.changes ? this.get(id) : null;
+      if(!result.changes)return null;
+      if(Object.hasOwn(post,'external_links'))replaceExternalLinks(id,post.external_links);
+      return this.get(id);
     }
   };
 }

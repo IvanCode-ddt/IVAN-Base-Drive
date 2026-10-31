@@ -107,7 +107,7 @@ export function createApp({ config, db, oauthClient, driveRequest, feedbackTrans
   registerPublishRoutes(app,{config,csrf,publisher:publisher||createPublisher({root,databasePath:config.databasePath,adminEmail:config.adminEmail,secrets:[config.clientSecret,config.sessionSecret]})});
   registerMedia(app,{admin,csrf,db,uploadDir});
   registerDriveRoutes(app, {db,config,csrf,driveRequest,revokeToken:token => oauth.revokeToken(token)});
-  app.get('/api/admin/session', (req,res) => res.json({ email:req.session.admin.email, authMode:'google',supportsPinning:true,contentSchemaVersion:13,driveConnected:!!req.session.drive?.access_token&&req.session.drive.expiry_date>Date.now()+10000, csrfToken:req.session.csrf, saveContractVersion:2 }));
+  app.get('/api/admin/session', (req,res) => res.json({ email:req.session.admin.email, authMode:'google',supportsPinning:true,contentSchemaVersion:14,driveConnected:!!req.session.drive?.access_token&&req.session.drive.expiry_date>Date.now()+10000, csrfToken:req.session.csrf, saveContractVersion:2 }));
   app.get('/api/admin/posts', (req,res) => res.json(db.list().map(post=>({...post,content_type:db.isMusicAlbum(post.id)?'music_album':'post'}))));
   app.get('/api/admin/highlights',(req,res)=>{
     const config=db.highlightConfig();

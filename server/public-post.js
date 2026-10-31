@@ -1,5 +1,5 @@
 // Shared explicit allowlist for Express and the static exporter.
-import { isUploadPath,publicMetadata,publicMediaSources,directMediaURL } from '../js/media.js';
+import { isUploadPath,publicMetadata,publicMediaSources,directMediaURL,externalDownloadURL } from '../js/media.js';
 function publicURL(value) {
   try {
     const url = new URL(value);
@@ -23,6 +23,11 @@ export function publicPost(post) {
     is_spotlight:post.is_spotlight===1||post.is_spotlight===true,
     metadata:publicMetadata(typeof post.metadata==='string'?JSON.parse(post.metadata):post.metadata,post.category),
     media_sources:post.category==='film'?publicMediaSources(typeof post.media_sources==='string'?JSON.parse(post.media_sources):post.media_sources,post.category,post.drive_files||[]):[],
+    external_links:(Array.isArray(post.external_links)?post.external_links:[]).filter(link=>link&&typeof link.name==='string'&&['direct','download_page'].includes(link.kind)&&externalDownloadURL(link.url)).map(link=>({
+      name:link.name,url:externalDownloadURL(link.url),kind:link.kind,
+      provider:typeof link.provider==='string'?link.provider:'',size:typeof link.size==='string'?link.size:'',
+      priority:Number.isInteger(link.priority)?link.priority:0,
+    })).sort((a,b)=>a.priority-b.priority),
     drive_files:(post.drive_files || []).filter(file => file.sharing_confirmed === 1 && file.sharing_access!=='restricted').map(file => ({
       file_id:file.file_id, name:file.name, mime_type:file.mime_type, size:file.size,
       modified_time:file.modified_time, web_url:publicURL(file.web_url),

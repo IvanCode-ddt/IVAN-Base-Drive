@@ -1,5 +1,5 @@
 import { CATEGORIES,filterPosts,sortPinnedPosts } from './data.js?v=15';
-import { cover,detailHTML,escapeHTML,categoryName,spotlightHTML,albumCardHTML,albumDetailHTML } from './content.js?v=19';
+import { cover,detailHTML,escapeHTML,categoryName,spotlightHTML,albumCardHTML,albumDetailHTML } from './content.js?v=20';
 import { createPostSource } from './post-source.js?v=12';
 import {initPlayers} from './media.js?v=14';
 const source=createPostSource();

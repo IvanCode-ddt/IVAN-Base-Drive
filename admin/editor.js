@@ -10,10 +10,49 @@ export function initEditor({form,getCSRF,onError,onDirty}){
  let slugManual=false,existing=false,inlineTarget;
  const title=form.elements.namedItem('title'),slug=form.elements.namedItem('slug');
  const cover=form.elements.namedItem('cover_url'),gallery=form.elements.namedItem('images');
+ const externalRows=document.getElementById('external-link-rows');
  title.addEventListener('input',()=>{if(!existing&&!slugManual)slug.value=slugify(title.value);});
  slug.addEventListener('input',()=>{slugManual=true;});
  document.querySelector('#regenerate-slug').addEventListener('click',()=>{slug.value=slugify(title.value);slugManual=false;onDirty();});
  const galleryValues=()=>gallery.value.split(/\r?\n/).map(v=>v.trim()).filter(Boolean);
+ function externalLinkRow(link={}){
+  const row=document.createElement('div');row.className='external-link-row';
+  const fields=document.createElement('div');fields.className='external-link-fields';
+  const addField=(labelText,tag,type,value,max)=>{
+   const label=document.createElement('label');label.textContent=labelText;
+   const input=document.createElement(tag);if(type)input.type=type;if(max)input.maxLength=max;
+   if(['Tên hiển thị','URL HTTPS','Loại liên kết'].includes(labelText))input.required=true;
+   input.dataset.externalField=labelText;
+   if(tag==='select'){
+    for(const[valueText,text]of[['direct','Tải trực tiếp'],['download_page','Mở trang tải']]){const option=document.createElement('option');option.value=valueText;option.textContent=text;input.append(option);}
+    input.value=value||'direct';
+   }else input.value=value||'';
+   label.append(input);fields.append(label);
+  };
+  addField('Tên hiển thị','input','text',link.name,160);
+  addField('URL HTTPS','input','url',link.url,2048);
+  addField('Loại liên kết','select','',link.kind||'direct');
+  addField('Nguồn cung cấp (tùy chọn)','input','text',link.provider,120);
+  addField('Dung lượng (tùy chọn)','input','text',link.size,80);
+  const actions=document.createElement('div');actions.className='external-link-actions';
+  for(const[action,label]of[['up','↑ Ưu tiên hơn'],['down','↓ Ưu tiên thấp hơn'],['remove','Xóa link']]){
+   const button=document.createElement('button');button.type='button';button.className='secondary-button';button.dataset.externalAction=action;button.textContent=label;actions.append(button);
+  }
+  row.append(fields,actions);return row;
+ }
+ function fillExternalLinks(links=[]){externalRows.replaceChildren(...links.map(externalLinkRow));}
+ document.getElementById('add-external-link').addEventListener('click',()=>{externalRows.append(externalLinkRow());onDirty();});
+ externalRows.addEventListener('input',onDirty);
+ externalRows.addEventListener('change',onDirty);
+ externalRows.addEventListener('click',event=>{
+  const button=event.target.closest('[data-external-action]');if(!button)return;
+  const row=button.closest('.external-link-row'),action=button.dataset.externalAction;
+  if(action==='remove')row.remove();
+  else if(action==='up'&&row.previousElementSibling)externalRows.insertBefore(row,row.previousElementSibling);
+  else if(action==='down'&&row.nextElementSibling)externalRows.insertBefore(row.nextElementSibling,row);
+  else return;
+  onDirty();
+ });
  function previews(){
   for(const[id,values]of[['cover-preview',cover.value?[cover.value]:[]],['gallery-preview',galleryValues()]]){
    const container=document.getElementById(id);container.replaceChildren();
@@ -39,5 +78,8 @@ export function initEditor({form,getCSRF,onError,onDirty}){
   insertMarkdown(field,button.dataset.md,url);
  }));
  cover.addEventListener('input',previews);gallery.addEventListener('input',previews);
- return{fill(post){existing=!!post;slugManual=!!post;previews();}};
+ return{fill(post){existing=!!post;slugManual=!!post;fillExternalLinks(post?.external_links||[]);previews();},externalLinks(){return[...externalRows.querySelectorAll('.external-link-row')].map(row=>{
+  const value=key=>row.querySelector(`[data-external-field="${key}"]`).value;
+  return{name:value('Tên hiển thị'),url:value('URL HTTPS'),kind:value('Loại liên kết'),provider:value('Nguồn cung cấp (tùy chọn)'),size:value('Dung lượng (tùy chọn)')};
+ });}};
 }
