@@ -351,6 +351,43 @@ body.public-site{background-color:#101216;background-image:radial-gradient(ellip
  .public-site .post-grid>article,.public-site .album-grid>article,.public-site .album-detail{animation:none!important}
  .public-site :is(.primary-button,.secondary-button,.filter,.content-groups a,.spotlight-controls button):active{transform:none!important}
 }
+.public-site .header{position:relative;z-index:20}
+.public-site .brand-tools{display:flex;align-items:center;gap:14px;min-width:0}
+.public-site .developer-menu{position:relative;z-index:21;align-self:center}
+.public-site .developer-menu-toggle{border:1px solid #4169e1;border-radius:7px;background:#24478f;color:#f5f8ff;padding:8px 12px;font-size:12px;font-weight:650;white-space:nowrap;transition:background-color 280ms ease,border-color 280ms ease,transform 280ms ease}
+.public-site .developer-menu-toggle:hover,.public-site .developer-menu-toggle:focus-visible{background:#315ab0;border-color:#76a0ff}
+.public-site .developer-menu-toggle:focus-visible,.public-site .developer-popover button:focus-visible,.public-site .developer-popover a:focus-visible{outline:2px solid #83aaff;outline-offset:3px}
+.public-site .developer-popover{position:absolute;top:calc(100% + 12px);left:0;width:min(340px,calc(100vw - 32px));max-height:min(78vh,680px);overflow:auto;padding:18px 20px;border:1px solid #34415b;border-radius:11px;background:#171c26;color:var(--text);box-shadow:0 18px 48px #0009;opacity:0;visibility:hidden;pointer-events:none;transform:translateY(-7px);transform-origin:top left;transition:opacity 300ms ease,transform 300ms ease,visibility 0s linear 300ms}
+.public-site .developer-menu[data-open=true] .developer-popover{opacity:1;visibility:visible;pointer-events:auto;transform:translateY(0);transition-delay:0s}
+.public-site .developer-popover-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-bottom:12px;border-bottom:1px solid #2c3442}
+.public-site .developer-popover-heading h2{margin:0;font-size:16px;letter-spacing:0}
+.public-site .developer-popover-heading button{width:30px;height:30px;border:1px solid #394252;border-radius:6px;background:#202632;color:var(--text);font-size:20px;line-height:1}
+.public-site .developer-info-section{padding-top:12px}
+.public-site .developer-info-section h3{margin:0 0 3px;color:#8eafff;font-size:10px;letter-spacing:1px}
+.public-site .developer-info-section p,.public-site #developer-support-details p{margin:0;color:#c1c7d2;font-size:12px;line-height:1.55;overflow-wrap:anywhere}
+.public-site .developer-info-section a{color:#9bb8ff;text-decoration:underline;text-underline-offset:2px}
+.public-site .developer-support{margin-top:14px;padding-top:13px;border-top:1px solid #2c3442}
+.public-site #developer-support-toggle{width:100%;border:1px solid #4169e1;border-radius:7px;background:#24478f;color:#f5f8ff;padding:9px 12px;font-size:13px;font-weight:650}
+.public-site #developer-support-toggle:hover{background:#315ab0}
+.public-site #developer-support-details{padding-top:11px}
+.public-site #developer-support-details p+p{margin-top:5px}
+.public-site #developer-copy-account{margin-top:10px;padding:8px 11px;font-size:12px}
+.public-site #developer-copy-status{min-height:0;margin-top:5px;color:#9bb8ff}
+@media(max-width:600px){
+ .public-site .brand-tools{gap:9px}
+ .public-site .header-inner{position:relative}
+ .public-site .developer-menu{position:static}
+ .public-site .developer-popover{right:0;left:auto;transform-origin:top right}
+}
+@media(max-width:360px){
+ .public-site .brand-tools{gap:7px}
+ .public-site .brand{gap:8px;font-size:19px}
+ .public-site .brand-mark{width:36px;height:39px;font-size:32px}
+ .public-site .developer-menu-toggle{padding:7px 8px;font-size:10px}
+}
+@media(prefers-reduced-motion:reduce){
+ .public-site .developer-menu-toggle,.public-site .developer-popover{transition:none}
+}
 /* Public background embers stay beneath the interface and never receive pointer input. */
 body.public-site::after{display:none}
 .public-site .ambient-particles{z-index:0;contain:paint}

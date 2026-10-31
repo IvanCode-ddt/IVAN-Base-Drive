@@ -4,6 +4,47 @@ import { createPostSource } from './post-source.js?v=12';
 import {initPlayers} from './media.js?v=14';
 const source=createPostSource();
 const $=s=>document.querySelector(s);
+function initDeveloperMenu(){
+ const root=$('#developer-menu'),toggle=$('#developer-menu-toggle'),popover=$('#developer-popover'),support=$('#developer-support-toggle'),supportDetails=$('#developer-support-details'),copy=$('#developer-copy-account'),status=$('#developer-copy-status');
+ let closeTimer,suppressFocusOpen=false,wasOpenBeforePointer=false;
+ const cancelClose=()=>{clearTimeout(closeTimer);closeTimer=undefined;};
+ function setOpen(open){
+  cancelClose();root.dataset.open=String(open);toggle.setAttribute('aria-expanded',String(open));popover.setAttribute('aria-hidden',String(!open));popover.inert=!open;
+  if(!open){supportDetails.hidden=true;support.setAttribute('aria-expanded','false');}
+ }
+ function scheduleClose(){
+  cancelClose();
+  closeTimer=setTimeout(()=>{if(!root.matches(':hover')&&!root.contains(document.activeElement))setOpen(false);},280);
+ }
+ root.addEventListener('mouseenter',()=>{if(matchMedia('(hover: hover) and (pointer: fine)').matches)setOpen(true);});
+ root.addEventListener('mouseleave',scheduleClose);
+ root.addEventListener('focusin',()=>{if(!suppressFocusOpen)setOpen(true);});
+ root.addEventListener('focusout',event=>{if(!root.contains(event.relatedTarget)&&!root.matches(':hover'))scheduleClose();});
+ toggle.addEventListener('pointerdown',()=>{wasOpenBeforePointer=toggle.getAttribute('aria-expanded')==='true';});
+ toggle.addEventListener('click',event=>setOpen(event.detail? !wasOpenBeforePointer:toggle.getAttribute('aria-expanded')!=='true'));
+ function closeAndFocus(){setOpen(false);suppressFocusOpen=true;toggle.focus();suppressFocusOpen=false;}
+ $('#developer-menu-close').addEventListener('click',closeAndFocus);
+ support.addEventListener('click',()=>{
+  const expanded=support.getAttribute('aria-expanded')!=='true';
+  support.setAttribute('aria-expanded',String(expanded));supportDetails.hidden=!expanded;
+ });
+ async function copyAccountNumber(){
+  let copied=false;
+  try{if(navigator.clipboard?.writeText){await navigator.clipboard.writeText($('#developer-account-number').textContent);copied=true;}}catch{}
+  if(!copied){
+   const field=document.createElement('textarea');field.value=$('#developer-account-number').textContent;field.setAttribute('readonly','');field.style.position='fixed';field.style.opacity='0';document.body.append(field);field.select();
+   try{copied=document.execCommand('copy');}catch{copied=false;}finally{field.remove();}
+  }
+  status.textContent=copied?'Account number copied.':'Copy is unavailable in this browser. Please select the account number.';
+ }
+ copy.addEventListener('click',copyAccountNumber);
+ document.addEventListener('pointerdown',event=>{if(!root.contains(event.target)&&toggle.getAttribute('aria-expanded')==='true')setOpen(false);});
+ document.addEventListener('keydown',event=>{
+  if(event.key==='Escape'&&toggle.getAttribute('aria-expanded')==='true'){event.preventDefault();closeAndFocus();}
+  if(event.key==='ArrowDown'&&event.target===toggle){event.preventDefault();setOpen(true);popover.querySelector('a,button')?.focus();}
+ });
+}
+initDeveloperMenu();
 // Public entry point only. Nothing is hidden while JS/observers are unavailable.
 const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)');
 const ambientViewport=matchMedia('(min-width:1024px) and (hover:hover) and (pointer:fine)');

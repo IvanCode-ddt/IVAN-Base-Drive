@@ -26,7 +26,7 @@ $actions = 'https://github.com/IvanCode-ddt/IVAN-Base-Drive/actions'
 function Quote-Argument([string]$value) {
   '"' + [regex]::Replace([regex]::Replace($value, '(\\*)"', '$1$1\"'), '(\\+)$', '$1$1') + '"'
 }
-function Run([string]$program, [string[]]$arguments, [string]$inputText = '') {
+function Run([string]$program, [string[]]$arguments, [string]$inputText = '', [bool]$showErrorOutput = $false) {
   $info = New-Object System.Diagnostics.ProcessStartInfo
   $info.FileName = $program
   $info.Arguments = (($arguments | ForEach-Object { Quote-Argument $_ }) -join ' ')
@@ -52,9 +52,13 @@ function Run([string]$program, [string[]]$arguments, [string]$inputText = '') {
   $process.WaitForExit()
   $code = $process.ExitCode
   $text = $stdout.GetAwaiter().GetResult()
-  $null = $stderr.GetAwaiter().GetResult() # Never print raw credential/provider errors.
+  $stderrText = $stderr.GetAwaiter().GetResult() # Never print raw credential/provider errors.
   $process.Dispose()
-  if ($code -ne 0) { throw "Lệnh $program thất bại (mã $code). Kiểm tra mạng, đăng nhập Git Credential Manager, quyền repository và cấu hình Git. Không force push/reset; script đã dừng." }
+  if ($code -ne 0) {
+    $details = if ($showErrorOutput -and $stderrText.Trim()) { "`n$($stderrText.Trim())" } else { '' }
+    if ($showErrorOutput) { throw "Lệnh $program thất bại (mã $code).$details" }
+    throw "Lệnh $program thất bại (mã $code). Kiểm tra mạng, đăng nhập Git Credential Manager, quyền repository và cấu hình Git. Không force push/reset; script đã dừng."
+  }
   return $text
 }
 function Git([string[]]$arguments, [string]$inputText = '') {
@@ -91,13 +95,13 @@ import os from 'node:os';
 import {validateBundle,allowedPublishPath} from './server/publish-bundle.js';
 const chunks=[];for await(const chunk of process.stdin)chunks.push(chunk);
 const names=JSON.parse(Buffer.concat(chunks).toString('utf8'));
-const secrets=Object.entries(process.env).filter(([key,value])=>/(SECRET|TOKEN|PASSWORD|ADMIN_EMAIL)/i.test(key)&&value.length>=8).map(([,value])=>value);
+const secrets=Object.entries(process.env).filter(([key,value])=>/(SECRET|TOKEN|PASSWORD)/i.test(key)&&value.length>=8).map(([,value])=>value);
 const pattern=/(?:gh[pousr]_[a-zA-Z0-9]{25,}|github_pat_[a-zA-Z0-9_]{30,}|GOCSPX-[a-zA-Z0-9_-]{20,}|ya29\.[a-zA-Z0-9_-]{20,}|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----(?:\s|\\[rn])+[A-Za-z0-9+/=]{32,})/;
 async function safeFile(name){
  let component=process.cwd();for(const part of name.split('/')){component=path.join(component,part);try{if((await fs.lstat(component)).isSymbolicLink())throw Error('SYMLINK');}catch(e){if(e.code==='ENOENT')return null;throw e;}}
- const stat=await fs.lstat(name);if(!stat.isFile()||stat.size>50*1024*1024)throw Error('UNSAFE_FILE');
+ const stat=await fs.lstat(name);if(!stat.isFile()||stat.size>50*1024*1024)throw Error('UNSAFE_FILE: '+name);
  const bytes=await fs.readFile(name),text=bytes.toString('utf8');
- if(pattern.test(text)||secrets.some(secret=>text.toLowerCase().includes(secret.toLowerCase())))throw Error('PRIVATE_DATA');
+ if(pattern.test(text)||secrets.some(secret=>text.toLowerCase().includes(secret.toLowerCase())))throw Error('PRIVATE_DATA: '+name);
  return bytes;
 }
 let directory;
@@ -108,11 +112,11 @@ try{
  await walk('docs');
  await validateBundle({directory,databasePath:path.resolve(process.env.DATABASE_PATH||'data/ivan.sqlite'),secrets,adminEmail:process.env.ADMIN_EMAIL||''});
  console.log('OK');
-}catch{console.error('Public/source validation failed. No secret details are printed.');process.exitCode=1;}
+}catch(error){console.error('Public/source validation failed:',error?.message||error?.name||'UNKNOWN_ERROR');process.exitCode=1;}
 finally{if(directory)await fs.rm(directory,{recursive:true,force:true});}
 '@
   $json = ConvertTo-Json -Compress -InputObject @($names)
-  $null = Run $script:nodeExe @('--env-file-if-exists=.env','--input-type=module','-e',$javascript) $json
+  $null = Run $script:nodeExe @('--env-file-if-exists=.env','--input-type=module','-e',$javascript) $json $true
 }
 
 # IVAN_UPDATE_MAIN
