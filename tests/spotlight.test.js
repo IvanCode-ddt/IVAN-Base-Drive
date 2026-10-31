@@ -24,6 +24,10 @@ test('Highlight API requires Google Admin and CSRF; config only accepts unique P
  const session=(await agent.get('/api/admin/session')).body;assert.equal(session.contentSchemaVersion,14);
  const adminPosts=(await agent.get('/api/admin/posts').expect(200)).body;
  assert.ok(adminPosts.some(post=>post.id===first.id&&post.title.startsWith('Sekiro™')));
+ assert.ok(adminPosts.some(post=>post.id===second.id&&post.status==='published'));
+ assert.ok(!adminPosts.some(post=>post.id===draft.id&&post.status==='published'));
+ const initial=(await agent.get('/api/admin/highlights').expect(200)).body;
+ assert.equal(initial.enabled,true);assert.equal(initial.interval_seconds,6);assert.deepEqual(initial.slides,[]);
  await agent.put('/api/admin/highlights').send({enabled:true,interval_seconds:6,slides:[]}).expect(403);
  const save=body=>agent.put('/api/admin/highlights').set('Origin',config.baseUrl).set('X-CSRF-Token',session.csrfToken).send(body);
  await save({enabled:true,interval_seconds:2,slides:[]}).expect(400);
@@ -32,7 +36,10 @@ test('Highlight API requires Google Admin and CSRF; config only accepts unique P
  const saved=(await save({enabled:true,interval_seconds:6,slides:[{post_id:second.id,enabled:false},{post_id:first.id,enabled:true}]}).expect(200)).body;
  assert.deepEqual(saved.slides.map(slide=>slide.post_id),[second.id,first.id]);
  assert.ok(saved.slides.some(slide=>slide.post_id===first.id));
- assert.ok((await agent.get('/api/admin/highlights').expect(200)).body.slides.some(slide=>slide.title.startsWith('Sekiro™')));
+ const reloaded=(await agent.get('/api/admin/highlights').expect(200)).body;
+ assert.equal(reloaded.enabled,true);assert.equal(reloaded.interval_seconds,6);
+ assert.deepEqual(reloaded.slides.map(slide=>slide.post_id),[second.id,first.id]);
+ assert.ok(reloaded.slides.some(slide=>slide.title.startsWith('Sekiro™')));
  assert.deepEqual((await request(app).get('/api/highlights').expect(200)).body.slides.map(slide=>slide.post.id),[first.id]);
  db.setPin(first.id,1,1);db.setPin(first.id,0,0);
  assert.equal(db.highlightConfig().slides.length,2);
