@@ -2,6 +2,36 @@
   "schemaVersion": 1,
   "posts": [
     {
+      "id": "a6c64dd3-4061-4766-ac45-6d21a0442451",
+      "slug": "devour-nghi-le-quy-am",
+      "title": "DEVOUR (Nghi Lễ Quỷ Ám)",
+      "category": "game",
+      "description": "Là một tựa game kinh dị sinh tồn (Survival Horror) kết hợp nhiều người chơi đình đám được phát triển và phát hành bởi studio Straight Back Games vào ngày 28 tháng 1, 2021. Được xây dựng với phong cách kinh dị tâm linh đầy ám ảnh, trò chơi nhanh chóng thu hút cộng đồng yêu thích thể loại game kinh dị nhờ cơ chế phối hợp đồng đội, những màn truy đuổi nghẹt thở và hệ thống nghi lễ trừ tà đầy thử thách, mang đến trải nghiệm căng thẳng và đáng sợ trong mỗi lần chơi.",
+      "introduction": "**Thông tin cơ bản**\nNhà phát triển: Straight Back Games\n\n\n\nĐạo diễn / Thiết kế: Đội ngũ phát triển Straight Back Games\n\n\n\nNền tảng hỗ trợ: Microsoft Windows (PC).\n\n\n\nBối cảnh: Thế giới kinh dị siêu nhiên (Supernatural Horror), nơi những thành viên của một giáo phái tà ác bị quỷ dữ chiếm hữu, buộc người chơi phải khám phá các địa điểm ma ám và thực hiện nghi lễ trừ tà để ngăn chặn thế lực hắc ám.\n**Cốt truyện và Lối chơi**\nNhân vật chính: Bạn sẽ vào vai một thành viên của giáo phái The Watchers, cùng những người đồng đội tìm cách giải cứu các thủ lĩnh bị quỷ Azazel chiếm hữu. Người chơi phải khám phá những khu vực bị nguyền rủa, thu thập vật phẩm nghi lễ và hoàn thành nhiệm vụ trước khi thực thể tà ác săn lùng và tiêu diệt toàn bộ nhóm.\n\n\n\nCơ chế phối hợp đồng đội: Trò chơi hỗ trợ tối đa 4 người cùng tham gia, yêu cầu các thành viên phối hợp tìm kiếm vật phẩm, hỗ trợ nhau khi gặp nguy hiểm và thực hiện nghi lễ trừ tà, đồng thời cho phép trải nghiệm một mình với độ khó đầy thử thách.\n\n\n\nHệ thống nghi lễ và vật phẩm: Người chơi phải thu thập các vật phẩm đặc biệt như dê, chuột hoặc những vật hiến tế khác tùy theo bản đồ, kết hợp cùng xăng, chìa khóa và các công cụ cần thiết để hoàn thành nghi lễ, trong khi sử dụng đèn pin tia UV để đẩy lùi những sinh vật quỷ ám đang truy đuổi.\n\n\n\nHệ thống Quỷ dữ và Truy đuổi (Demonic AI): Lối chơi của game được nâng tầm nhờ trí tuệ nhân tạo của các thực thể bị quỷ Azazel chiếm hữu, có khả năng trở nên hung hãn hơn khi nghi lễ tiến triển, kết hợp cùng những sinh vật tay sai xuất hiện liên tục, buộc người chơi phải ẩn nấp, chạy trốn và phối hợp chiến thuật để sống sót.\n**Điểm nổi bật**\n- Bầu không khí kinh dị chân thực: Tái hiện những địa điểm ma ám như trang trại bỏ hoang, nhà thương điên, quán trọ và các khu vực bị nguyền rủa với hệ thống ánh sáng u tối, âm thanh rùng rợn và những tình huống hù dọa bất ngờ, mang đến trải nghiệm kinh dị đầy căng thẳng và ám ảnh.\n- Lối chơi phối hợp và thử thách sinh tồn: Trò chơi sở hữu nhiều bản đồ với cơ chế nghi lễ và các thực thể quỷ dữ khác nhau, kết hợp cùng độ khó tăng dần trong mỗi trận đấu, đòi hỏi người chơi phải quản lý tài nguyên, phối hợp đồng đội, phản ứng nhanh và hoàn thành nghi lễ trước khi bị quỷ dữ tiêu diệt.",
+      "instructions": "## Installation\n**(Game tải ở ví dụ là Hollow_Knight_Silksong)**\n1.Tải và giải nén file [Tên_game_đã_tải].rar\n2.Sau khi giải nén file sẽ có cấu trúc như sau:\n![Ảnh minh họa](uploads/9561c974-40ff-424a-a1e6-4cbf9ffaefda.webp)\n3.Tìm và chạy file [Tên_game_đã_tải].exe\n![Ảnh minh họa](uploads/06c5c738-c0fb-40a8-a1b2-deddafe89e9e.webp)\n(game tải ở ví dụ là Hollow_Knight_Silksong)\n\n## Việt Hóa:\n-Sử dụng việt hóa của các bên như(**nếu có**):\n+CCT:[link](https://canhcutteam.com/)\n+Theredteam:[link](https://theredteam.vn/)\n+Game Thuần Việt:[link](https://gamethuanviet.com/)\n+NVP Việt Hóa:[link](https://www.nvpviethoa.com/)\n+Mê Việt Hóa:[link](https://meviethoa.com/)",
+      "minimum_requirements": "- Hệ điều hành: Windows 10 (64-bit)\n- Bộ xử lý (CPU): Intel Core i5 hoặc Intel Core i3 thế hệ mới / AMD tương đương\n- Bộ nhớ (RAM): 8 GB RAM\n- Card đồ họa (GPU): NVIDIA GTX 970 hoặc AMD Radeon R9 290\n- DirectX: Phiên bản 11\n- Ổ cứng trống: 10 GB (Hỗ trợ HDD nhưng nên dùng SSD)",
+      "recommended_requirements": "- Hệ điều hành: Windows 10 (64-bit)\n- Bộ xử lý (CPU): Intel Core i7 hoặc AMD tương đương (AMD FX 9500+ Series)\n- Bộ nhớ (RAM): 16 GB RAM\n- Card đồ họa (GPU): NVIDIA GTX 970 / AMD Radeon R9 290 hoặc cao hơn\n- DirectX: Phiên bản 11\n- Ổ cứng trống: 10 GB (Khuyến nghị sử dụng ổ cứng SSD)",
+      "install_size": "20Gib",
+      "operating_systems": [
+        "Windows"
+      ],
+      "cover_url": "uploads/a77a244a-268b-4a84-a449-b27576d0de79.webp",
+      "images": [],
+      "attachment_url": "",
+      "media_url": "",
+      "status": "published",
+      "created_at": "2026-11-09T16:45:41.720Z",
+      "updated_at": "2026-11-09T16:45:41.720Z",
+      "is_pinned": true,
+      "pin_order": 7,
+      "is_spotlight": false,
+      "metadata": {},
+      "media_sources": [],
+      "external_links": [],
+      "drive_files": [],
+      "content_type": "post"
+    },
+    {
       "id": "64f8738d-9ade-4eaf-90ba-fb6f95844bca",
       "slug": "elden-ring-deluxe-edition",
       "title": "Elden Ring Deluxe Edition",
