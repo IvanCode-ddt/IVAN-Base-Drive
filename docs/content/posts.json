@@ -2,6 +2,47 @@
   "schemaVersion": 1,
   "posts": [
     {
+      "id": "c06a3d38-990e-4b73-8b71-431f73fa33cd",
+      "slug": "viet-hoa-rdr2",
+      "title": "Việt hóa RDR2",
+      "category": "other",
+      "description": "Việt Hóa RDR2 by The Red Team",
+      "introduction": "",
+      "instructions": "",
+      "minimum_requirements": "",
+      "recommended_requirements": "",
+      "install_size": "2.5 GB",
+      "operating_systems": [
+        "Windows"
+      ],
+      "cover_url": "uploads/7a23a0bd-5949-4810-b538-a9d85263385b.webp",
+      "images": [],
+      "attachment_url": "",
+      "media_url": "",
+      "status": "published",
+      "created_at": "2026-11-20T03:20:03.856Z",
+      "updated_at": "2026-11-20T03:21:43.158Z",
+      "is_pinned": false,
+      "pin_order": 8,
+      "is_spotlight": false,
+      "metadata": {},
+      "media_sources": [],
+      "external_links": [],
+      "drive_files": [
+        {
+          "file_id": "19vNRrgxw9mIeas57SSA2r8HnyKvzGdhw",
+          "name": "RDR2VH_210726_mk_'Theredteam.vn'.rar",
+          "mime_type": "application/rar",
+          "size": "1182341509",
+          "modified_time": "2026-11-19T21:52:47.033Z",
+          "web_url": "https://drive.google.com/file/d/19vNRrgxw9mIeas57SSA2r8HnyKvzGdhw/view?usp=drivesdk",
+          "download_url": "https://drive.google.com/uc?id=19vNRrgxw9mIeas57SSA2r8HnyKvzGdhw&export=download",
+          "can_download": 1
+        }
+      ],
+      "content_type": "post"
+    },
+    {
       "id": "89485546-8383-4f13-98a8-162760c96988",
       "slug": "grand-theft-auto-v-gta-5",
       "title": "Grand Theft Auto V / GTA 5",
