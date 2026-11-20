@@ -1,7 +1,7 @@
-import { CATEGORIES,filterPosts,sortPinnedPosts } from './data.js?v=21';
-import { cover,detailHTML,escapeHTML,categoryName,spotlightHTML,albumCardHTML,albumDetailHTML } from './content.js?v=21';
+import { CATEGORIES,filterPosts,sortPinnedPosts } from './data.js?v=22';
+import { cover,detailHTML,escapeHTML,categoryName,spotlightHTML,albumCardHTML,albumDetailHTML } from './content.js?v=22';
 import { createPostSource } from './post-source.js?v=12';
-import {initPlayers} from './media.js?v=14';
+import {initPlayers} from './media.js?v=22';
 const source=createPostSource();
 const $=s=>document.querySelector(s);
 function initDeveloperMenu(){
@@ -250,6 +250,18 @@ $('#feedback-open').addEventListener('click',()=>openFeedback());
 $('#feedback-request').addEventListener('click',()=>openFeedback($('#search-input').value.trim()));
 $('#feedback-close').addEventListener('click',()=>{$('#feedback-dialog').close();$('#feedback-frame').replaceChildren();});
 $('#feedback-dialog').addEventListener('close',()=>$('#feedback-frame').replaceChildren());
+const imageLightbox=$('#image-lightbox'),lightboxImage=$('#image-lightbox-image');
+function closeImageLightbox(){if(imageLightbox.open)imageLightbox.close();}
+$('#image-lightbox-close').addEventListener('click',closeImageLightbox);
+imageLightbox.addEventListener('click',event=>{if(event.target===imageLightbox||event.target===imageLightbox.querySelector('.image-lightbox-content'))closeImageLightbox();});
+document.addEventListener('click',event=>{
+ const image=event.target.closest('.image-lightbox-trigger');
+ if(!image)return;
+ event.preventDefault();event.stopPropagation();
+ const source=image.dataset.fullSrc||image.currentSrc||image.src;
+ lightboxImage.src=source;lightboxImage.alt=image.alt||'Ảnh';
+ if(!imageLightbox.open)imageLightbox.showModal();
+});
 // Record the initial default so Back restores Game instead of a later selection.
 if(!location.hash||location.hash==='#library'){
  const requested=new URLSearchParams(location.search).get('category');

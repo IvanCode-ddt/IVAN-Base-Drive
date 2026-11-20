@@ -53,7 +53,7 @@ test('Highlight responsive images preserve source ratio in local routes and stat
   const output=path.join(directory,'site');
   // SourceDir uses its upload folder; use a complete fixture with this upload for export.
   const source=path.join(directory,'source');await mkdir(source);const {copyFile,cp}=await import('node:fs/promises');await copyFile('index.html',path.join(source,'index.html'));for(const dir of ['js','css','images'])await cp(dir,path.join(source,dir),{recursive:true});await cp(uploads,path.join(source,'uploads'),{recursive:true});
-  await exportStatic({databasePath:filename,sourceDir:source,outputDir:output});for(const width of [640,960,1440]){const metadata=await sharp(await readFile(path.join(output,`images/spotlight-${id}-${width}.webp`))).metadata();assert.equal(metadata.width,width);assert.ok(Math.abs(metadata.width/metadata.height-1.5)<.01);}
+  await exportStatic({databasePath:filename,sourceDir:source,outputDir:output});for(const width of [640,960,1440]){const metadata=await sharp(await readFile(path.join(output,`images/spotlight-${id}-${width}.webp`))).metadata();assert.equal(metadata.width,Math.min(width,1200));assert.ok(Math.abs(metadata.width/metadata.height-1.5)<.01);}
   db.update(saved.id,validatePost({...body,status:'draft',cover_url:`uploads/${id}.webp`}));await request(app).get(`/images/spotlight-${id}-640.webp`).expect(404);
   await exportStatic({databasePath:filename,sourceDir:source,outputDir:output});assert.ok(!(await readdir(path.join(output,'images'))).some(name=>name.startsWith('spotlight-'+id)));
  }finally{db?.close();await rm(directory,{recursive:true,force:true,maxRetries:5,retryDelay:100});}

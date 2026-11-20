@@ -90,7 +90,7 @@ export async function exportStatic({ databasePath=path.resolve(process.env.DATAB
     const imageBytes=await readFile(original),{default:sharp}=await import('sharp');
     for(const image of spotlightImageSet(post.cover_url)){
       generated.add(path.basename(image.url));
-      await sharp(imageBytes,{limitInputPixels:16000000}).resize({width:image.width}).webp({quality:90}).toFile(path.join(outputDir,image.url));
+      await sharp(imageBytes,{limitInputPixels:16000000}).resize({width:image.width,withoutEnlargement:true}).webp({quality:92}).toFile(path.join(outputDir,image.url));
     }
   }
   for(const name of await readdir(path.join(outputDir,'images')))if(/^spotlight-[a-f0-9-]{36}-(640|960|1440)\.webp$/.test(name)&&!generated.has(name))await rm(path.join(outputDir,'images',name));

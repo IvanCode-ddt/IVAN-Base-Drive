@@ -18,7 +18,7 @@ export async function saveImage(buffer,directory) {
     const decoder=sharp(buffer,{limitInputPixels:16000000,failOn:'warning'});
     const metadata=await decoder.metadata();
     if(!['png','jpeg','webp'].includes(metadata.format)||metadata.pages>1)throw new Error('format');
-    output=await decoder.rotate().resize({width:2400,height:2400,fit:'inside',withoutEnlargement:true}).webp({quality:85}).toBuffer();
+    output=await decoder.rotate().webp({quality:100,lossless:true,effort:6}).toBuffer();
   }catch{throw new InputError('Ảnh không hợp lệ. Chỉ nhận JPEG, PNG, WebP tĩnh, tối đa 16 triệu pixel; không nhận SVG hoặc file thực thi.');}
   const name=`${randomUUID()}.webp`;
   await mkdir(directory,{recursive:true});await writeFile(path.join(directory,name),output,{flag:'wx'});
@@ -30,7 +30,7 @@ export function registerMedia(app,{admin,csrf,db,uploadDir}) {
     const activeSlides=new Set(db.highlightConfig({publicOnly:true}).slides.map(slide=>slide.post_id));
     if(!isUploadPath(relative)||!db.list(true).some(post=>activeSlides.has(post.id)&&post.cover_url===relative))return res.sendStatus(404);
     try{const original=path.join(uploadDir,name);if(!(await lstat(original)).isFile())return res.sendStatus(404);
-      const bytes=await sharp(await readFile(original),{limitInputPixels:16000000}).resize({width}).webp({quality:90}).toBuffer();res.set('Cache-Control','no-store').type('webp').send(bytes);
+      const bytes=await sharp(await readFile(original),{limitInputPixels:16000000}).resize({width,withoutEnlargement:true}).webp({quality:92}).toBuffer();res.set('Cache-Control','no-store').type('webp').send(bytes);
     }catch(error){if(error.code==='ENOENT')return res.sendStatus(404);next(error);}
   });
   app.post('/api/admin/images',csrf,express.raw({type:()=>true,limit:MAX_IMAGE_BYTES}),async(req,res)=>res.status(201).json(await saveImage(req.body,uploadDir)));

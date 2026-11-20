@@ -22,7 +22,7 @@ function inline(text,depth=0) {
   for(const m of text.matchAll(pattern)){
     html+=linkify(text.slice(position,m.index));position=m.index+m[0].length;
     if(m[1]!==undefined)html+=`<code>${esc(m[1])}</code>`;
-    else if(m[3]!==undefined){const url=imageURL(m[3]);html+=url?`<img src="${esc(url)}" alt="${esc(m[2])}" loading="lazy" referrerpolicy="no-referrer">`:esc(m[2]);}
+    else     if(m[3]!==undefined){const url=imageURL(m[3]);html+=url?`<img class="image-lightbox-trigger" src="${esc(url)}" data-full-src="${esc(url)}" alt="${esc(m[2])}" loading="lazy" referrerpolicy="no-referrer">`:esc(m[2]);}
     else if(m[5]!==undefined){const url=safeLink(m[5]);html+=url?`<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(m[4])}</a>`:esc(m[4]);}
     else if(m[6]!==undefined)html+=`<strong>${inline(m[6],depth+1)}</strong>`;
     else html+=`<em>${inline(m[7],depth+1)}</em>`;
