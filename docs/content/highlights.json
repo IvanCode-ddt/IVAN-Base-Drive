@@ -4,6 +4,10 @@
   "interval_seconds": 4,
   "slides": [
     {
+      "post_id": "aace71a4-d484-46c6-8db7-6d93e803eac5",
+      "enabled": true
+    },
+    {
       "post_id": "bb4a76a0-0754-4659-a19e-f874c94cabce",
       "enabled": true
     },
@@ -17,10 +21,6 @@
     },
     {
       "post_id": "7fb3bcad-4d44-40a5-93dc-9ada54eed3b6",
-      "enabled": true
-    },
-    {
-      "post_id": "89485546-8383-4f13-98a8-162760c96988",
       "enabled": true
     }
   ]
